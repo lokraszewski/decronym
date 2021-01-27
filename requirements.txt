@@ -1,0 +1,8 @@
+click
+docutils
+jsonpickle
+jsonschema
+lxml
+requests
+Sphinx
+toml

@@ -1,0 +1,13 @@
+# Test config for decronym 
+
+title = "Decronym Default Config"
+
+[source]
+paths = []
+urls = ["https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/hardware.json", 
+"https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/software.json",
+"https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/social.json"]
+
+[source.silmaril]
+enable = true
+uri = "http://acronyms.silmaril.ie/cgi-bin/xaa"
