@@ -177,7 +177,10 @@ class Config(object):
         self.load()
 
     def save(self, path=None):
-        with click.open_file(self.path, mode="w+") as f:
+        if not path:
+            path = self.path
+
+        with click.open_file(path, mode="w+") as f:
             f.write(toml.dumps(self.config))
         self.hash = self.calculate_hash()
 
@@ -185,7 +188,6 @@ class Config(object):
         if not path:
             path = self.path
 
-        print(f"Loading config from {path}")
         try:
             self.config = toml.load(path)
             self.hash = self.calculate_hash()

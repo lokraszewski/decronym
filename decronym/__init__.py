@@ -164,9 +164,16 @@ def update(ctx):
     is_flag=True,
     help=("Opens the config file for editing "),
 )
+@click.option(
+    "--dump",
+    help=("Dumps the config to file (or stdout: '-' )"),
+)
 @click.pass_context
-def config(ctx, add, remove, thirdparty, edit):
+def config(ctx, add, remove, thirdparty, edit, dump):
     """Configuration helper."""
+    if dump:
+        ctx.obj.save(path=dump)
+        return
 
     if edit:
         click.edit(filename=ctx.obj.path)
