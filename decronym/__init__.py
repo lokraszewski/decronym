@@ -46,34 +46,34 @@ out_green = partial(click.secho, bold=True, fg="green", err=True)
 
 
 def callback_config(ctx, param, value):
-    """Inject configuration from configuration file.
-    """
+    """Inject configuration from configuration file."""
     ctx.obj = Config(path=value)
     return value
 
 
-@click.group(invoke_without_command=True)
+@click.group()
 @click.pass_context
 @click.option(
     "--config",
-    type=click.Path(exists=True, file_okay=True, dir_okay=True,
-                    readable=True, path_type=str),
+    type=click.Path(
+        exists=True, file_okay=True, dir_okay=True, readable=True, path_type=str
+    ),
     is_eager=True,
     callback=callback_config,
-    help=(f"Path to the config file to use.")
+    help=(f"Path to the config file to use."),
 )
 def cli(ctx, config):
     """<name pending> CLI"""
-    if ctx.invoked_subcommand is None:
-        # By default run decode
-        ctx.invoke(find)
+    pass
 
 
 @cli.command()
 @click.pass_context
 @click.argument("acronyms", nargs=-1, required=True)
 @click.option(
-    "--tag", "-t", "tags",
+    "--tag",
+    "-t",
+    "tags",
     multiple=True,
     type=str,
     help=("Only show matches with given tags."),
@@ -88,8 +88,7 @@ def find(ctx, acronyms, tags):
             # Filter the results if the user has given any tags.
             # If any of the tags matches, the result will be shown.
             if tags and matches:
-                matches = [r for r in matches if not set(
-                    r.tags).isdisjoint(tags)]
+                matches = [r for r in matches if not set(r.tags).isdisjoint(tags)]
             if matches:
                 all_matches[acronym] = matches + all_matches[acronym]
 
@@ -115,10 +114,12 @@ def clean(ctx):
     """Cleans local cache"""
 
     luts = create_all_luts(config=ctx.obj)
-    with click.progressbar(os.walk(os.path.abspath(ctx.obj.get_cache_dir())),
-                           label="Cleaning cache",
-                           fill_char=click.style("#", fg="green"),
-                           length=len(luts)) as bar:
+    with click.progressbar(
+        os.walk(os.path.abspath(ctx.obj.get_cache_dir())),
+        label="Cleaning cache",
+        fill_char=click.style("#", fg="green"),
+        length=len(luts),
+    ) as bar:
         for dir, _, files in bar:
             for file in files:
                 cache_file = os.path.join(dir, file)
@@ -131,10 +132,12 @@ def clean(ctx):
 def update(ctx):
     """Updates locally cached definition files based on config. """
     luts = create_all_luts(config=ctx.obj)
-    with click.progressbar(luts,
-                           label="Updating cache",
-                           fill_char=click.style("#", fg="green"),
-                           length=len(luts)) as bar:
+    with click.progressbar(
+        luts,
+        label="Updating cache",
+        fill_char=click.style("#", fg="green"),
+        length=len(luts),
+    ) as bar:
         for lut in bar:
             lut.update_cache()
 
@@ -162,7 +165,7 @@ def update(ctx):
     help=("Opens the config file for editing "),
 )
 @click.pass_context
-def config(ctx,  add, remove, thirdparty, edit):
+def config(ctx, add, remove, thirdparty, edit):
     """Configuration helper."""
 
     if edit:
@@ -176,5 +179,5 @@ def config(ctx,  add, remove, thirdparty, edit):
         for input in add:
             ctx.obj.add_source(input)
 
-    if ctx.obj.changed() and click.confirm(f'Config changed, save changes?'):
+    if ctx.obj.changed() and click.confirm(f"Config changed, save changes?"):
         ctx.obj.save()
