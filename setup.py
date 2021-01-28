@@ -10,8 +10,8 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="decronym",
-    version="0.0.1a0",
-    description="Because TLAs can be such a PITA!",
+    version="0.0.1a1",
+    description="CLI for Acronym Lookup",
     author="Lukasz Okraszewski",
     author_email="lokraszewski.work@gmail.com",
     url="https://github.com/lokraszewski/decronym",
@@ -32,12 +32,15 @@ setup(
         #   4 - Beta
         #   5 - Production/Stable
         "Development Status :: 3 - Alpha",
+
         # Indicate who your project is intended for
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
         "Programming Language :: Python :: 3.8",
+        "Topic :: Utilities"
     ],
+    keywords=['acronym'],
     python_requires=">=3.8",
     entry_points={
         "console_scripts": ["decronym=decronym:cli"],

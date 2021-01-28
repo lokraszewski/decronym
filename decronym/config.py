@@ -12,20 +12,33 @@ DECRO_PATH = os.path.join(os.environ["HOME"], ".config/decronym")
 PATH_CACHE = os.path.join(DECRO_PATH, "cache")
 DEFAULT_DBS = os.path.join(DECRO_PATH, "data")
 
+
 JSON_DICT_SCHEMA = {
-    "patternProperties": {
-        "^[a-z0-9]+$": {
+    "type": "object",
+    "properties": {
+        "meta": {
             "type": "object",
             "properties": {
-                "acro": {"type": "string"},
-                "full": {"type": "string"},
+                "source": {"type": "string"},
                 "tags": {"type": "array", "items": {"type": "string"}},
-                "description": {"type": "string"},
             },
-            "required": ["acro", "full"],
-        }
+        },
+        "defs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "acro": {"type": "string"},
+                    "full": {"type": "string"},
+                    "comment": {"type": "string"},
+                    "suggested": {"type": "array", "items": {"type": "string"}},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["acro", "full"],
+            },
+        },
     },
-    "additionalProperties": False,
+    "required": ["defs"],
 }
 
 URL_REGEX = re.compile(
@@ -66,7 +79,7 @@ def get_cache_dir():
     return os.path.join(os.environ["HOME"], ".config/decronym", "cache")
 
 
-def is_valid_json_def(instance, schema=JSON_DICT_SCHEMA):
+def is_valid_json_def(instance):
     try:
         validate(schema=JSON_DICT_SCHEMA, instance=instance)
     except ValidationError as e:

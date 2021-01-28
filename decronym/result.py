@@ -68,10 +68,12 @@ class Result(object):
         return out
 
     @classmethod
-    def fromJSON(cls, json_dict: Dict, source='unknown'):
-        return cls(acro=json_dict['acro'],
+    def fromJSON(cls, json_dict: Dict, meta: Dict={}, source=''):
+        key = json_dict['acro']
+        src = meta.get('source', source)
+        return cls(acro=key,
                    full=json_dict['full'],
-                   tags=json_dict.get('tags', []),
+                   tags=json_dict.get('tags', [])+meta.get('tags', []),
                    comment=json_dict.get('comment', ''),
-                   source=source,
+                   source=src,
                    )

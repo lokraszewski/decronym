@@ -36,7 +36,7 @@ from typing import (
 
 
 def url_to_filename(url: str):
-    hash_object = hashlib.md5(url.encode('utf-8'))
+    hash_object = hashlib.md5(url.encode("utf-8"))
     return f"{hash_object.hexdigest()}.json"
 
 
@@ -57,8 +57,7 @@ class LookupBase(object):
 class LookupRemoteJSON(LookupBase):
     def __init__(self, url):
         self.url = url
-        self.cache_filepath = os.path.join(
-            get_cache_dir(), url_to_filename(url))
+        self.cache_filepath = os.path.join(get_cache_dir(), url_to_filename(url))
         self.lut = defaultdict(list)
 
     def load(self, force=False) -> None:
@@ -69,20 +68,23 @@ class LookupRemoteJSON(LookupBase):
         if len(self.lut) == 0 or force:
             with click.open_file(self.cache_filepath) as f:
                 json_raw = json.load(f)
-                if(is_valid_json_def(json_raw)):
-                    # For now use a simple lookup with a dictionary of lists.
-                    for _, entry in json_raw.items():
-                        self.lut[entry['acro']].append(
-                            Result.fromJSON(entry, source=self.url))
+                if not is_valid_json_def(json_raw):
+                    print("INVALID DEF FILE")
+                    return
+
+                for item in json_raw["defs"]:
+                    self.lut[item["acro"].lower()].append(
+                        Result.fromJSON(item, meta=json_raw["meta"], source=self.url)
+                    )
 
     def update_cache(self, force=False) -> None:
         req = requests.get(self.url)
         decoded_data = json.loads(req.text)
-        
+
         directory = os.path.dirname(self.cache_filepath)
         if not os.path.exists(directory):
             os.makedirs(directory)
-                
+
         with click.open_file(self.cache_filepath, mode="w+") as f:
             f.write(json.dumps(decoded_data))
 
@@ -104,11 +106,16 @@ class LookupLocalJSON(LookupBase):
         if len(self.lut) == 0 or force:
             with click.open_file(self.filepath) as f:
                 json_raw = json.load(f)
-                if(is_valid_json_def(json_raw)):
-                    # For now use a simple lookup with a dictionary of lists.
-                    for _, entry in json_raw.items():
-                        self.lut[entry['acro']].append(
-                            Result.fromJSON(entry, source=self.url))
+                if not is_valid_json_def(json_raw):
+                    print("INVALID DEF FILE")
+                    return
+
+                for item in json_raw["defs"]:
+                    self.lut[item["acro"].lower()].append(
+                        Result.fromJSON(
+                            item, meta=json_raw["meta"], source=self.filepath
+                        )
+                    )
 
     def drop(self):
         self.lut = defaultdict(list)
@@ -124,14 +131,17 @@ class LookupSilmaril(LookupBase):
         self.uri = uri
 
     def __getitem__(self, key) -> List[Result]:
-        root = etree.fromstring(requests.get(
-            f"{self.uri}?{key}").text.encode("UTF-8"))
+        root = etree.fromstring(requests.get(f"{self.uri}?{key}").text.encode("UTF-8"))
 
-        return [Result(key,
-                       full=acro.findtext('expan', default=''),
-                       comment=acro.findtext('comment', default=''),
-                       source=self.uri
-                       ) for acro in root.findall('.//acro')]
+        return [
+            Result(
+                key,
+                full=acro.findtext("expan", default=""),
+                comment=acro.findtext("comment", default=""),
+                source=self.uri,
+            )
+            for acro in root.findall(".//acro")
+        ]
 
 
 def create_all_luts(config: Config) -> List[Any]:
@@ -153,11 +163,10 @@ def create_all_luts(config: Config) -> List[Any]:
         elif os.path.isdir(path):
             for dirpath, _, files in os.walk(os.path.abspath(path)):
                 for file in files:
-                    if file.endswith('.json'):
-                        luts.append(
-                            LookupLocalJSON(os.path.join(dirpath, file)))
+                    if file.endswith(".json"):
+                        luts.append(LookupLocalJSON(os.path.join(dirpath, file)))
 
-    silmaril_config = config.get_third_party('silmaril')
-    if silmaril_config and silmaril_config['enable']:
-        luts.append(LookupSilmaril(silmaril_config['uri']))
+    silmaril_config = config.get_third_party("silmaril")
+    if silmaril_config and silmaril_config["enable"]:
+        luts.append(LookupSilmaril(silmaril_config["uri"]))
     return luts
