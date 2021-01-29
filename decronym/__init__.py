@@ -38,7 +38,7 @@ import jsonpickle
 import re
 import math
 import hashlib
-
+import difflib
 
 out = partial(click.secho, bold=False, err=True)
 err = partial(click.secho, fg="red", err=True)
@@ -82,7 +82,8 @@ def find(ctx, acronyms, tags):
     """Searches for acronyms in provided souces."""
     # First build a list of files that are being searched.
     all_matches = defaultdict(list)
-    for lut in create_all_luts(ctx.obj):
+    all_luts = create_all_luts(ctx.obj)
+    for lut in all_luts:
         for acronym in acronyms:
             matches = lut[acronym]
             # Filter the results if the user has given any tags.
@@ -93,14 +94,21 @@ def find(ctx, acronyms, tags):
                 all_matches[acronym] = matches + all_matches[acronym]
 
     for acronym, matches in all_matches.items():
-        if matches:
-            click.secho(acronym, bold=True, fg="green")
-            for match in matches:
-                if type(match) is Result:
-                    print(match.pretty())
-        else:
-            # Add tag handling.
+        click.secho(acronym, bold=True, fg="green")
+        for match in matches:
+            if type(match) is Result:
+                print(match.pretty())
+
+    for acronym in acronyms:
+        if acronym not in all_matches:
             err(f"No entires for '{acronym}' found!")
+            suggested = []
+            for lut in all_luts:
+                temp = difflib.get_close_matches(acronym, lut.keys())
+                suggested = suggested + temp
+
+            if suggested:
+                click.echo(f"Suggested: {set(suggested)}")
 
 
 def test(path, data):

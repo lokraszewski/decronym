@@ -91,6 +91,9 @@ class LookupRemoteJSON(LookupBase):
     def drop(self):
         self.lut = None
 
+    def keys(self):
+        return self.lut.keys()
+
     def __getitem__(self, key):
         if len(self.lut) == 0:
             self.load()
@@ -120,6 +123,9 @@ class LookupLocalJSON(LookupBase):
     def drop(self):
         self.lut = defaultdict(list)
 
+    def keys(self):
+        return self.lut.keys()
+
     def __getitem__(self, key) -> List[Result]:
         if len(self.lut) == 0:
             self.load()
@@ -129,6 +135,9 @@ class LookupLocalJSON(LookupBase):
 class LookupSilmaril(LookupBase):
     def __init__(self, uri):
         self.uri = uri
+
+    def keys(self):
+        return []
 
     def __getitem__(self, key) -> List[Result]:
         root = etree.fromstring(requests.get(f"{self.uri}?{key}").text.encode("UTF-8"))
