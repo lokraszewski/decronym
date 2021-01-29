@@ -32,11 +32,14 @@ from typing import (
 
 
 class Result(object):
-    def __init__(self, acro: str,
-                 full: str,
-                 tags: List[str] = [],
-                 comment: str = "",
-                 source: str = "") -> None:
+    def __init__(
+        self,
+        acro: str,
+        full: str,
+        tags: List[str] = [],
+        comment: str = "",
+        source: str = "",
+    ) -> None:
         self.acro = acro
         self.full = full
         self.tags = tags
@@ -49,7 +52,7 @@ class Result(object):
             if letter.isupper():
                 out += click.style(letter, bold=True, fg="green")
             else:
-                out += click.style(letter,  bold=True)
+                out += click.style(letter, bold=True)
         out += "\n"
 
         if self.comment:
@@ -58,8 +61,7 @@ class Result(object):
                 out += click.style(f"\t{line}\n", fg="white")
 
         if self.tags:
-            tags_formatted = " ".join(
-                [f"[{tag}]" for tag in self.tags])
+            tags_formatted = " ".join([f"[{tag}]" for tag in self.tags])
             out += click.style(f"\t{tags_formatted}\n", fg="green")
 
         if self.source:
@@ -68,12 +70,13 @@ class Result(object):
         return out
 
     @classmethod
-    def fromJSON(cls, json_dict: Dict, meta: Dict={}, source=''):
-        key = json_dict['acro']
-        src = meta.get('source', source)
-        return cls(acro=key,
-                   full=json_dict['full'],
-                   tags=json_dict.get('tags', [])+meta.get('tags', []),
-                   comment=json_dict.get('comment', ''),
-                   source=src,
-                   )
+    def fromJSON(cls, json_dict: Dict, meta: Dict = {}, source=""):
+        key = json_dict["acro"]
+        src = meta.get("source", source)
+        return cls(
+            acro=key,
+            full=json_dict["full"],
+            tags=json_dict.get("tags", []) + meta.get("tags", []),
+            comment=json_dict.get("comment", ""),
+            source=src,
+        )

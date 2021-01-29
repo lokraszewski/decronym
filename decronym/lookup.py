@@ -1,16 +1,15 @@
 # -*- coding: utf-8 -*-
-from collections import defaultdict
-import hashlib
 import os
 import requests
 import json
-from jsonschema import validate, ValidationError
 import click
-from lxml import etree
 import re
-from .result import Result
-from .config import get_cache_dir, is_valid_json_def, Config
+import difflib
 
+from jsonschema import validate, ValidationError
+from collections import defaultdict
+from lxml import etree
+from enum import Enum, auto
 from typing import (
     Any,
     Callable,
@@ -34,10 +33,44 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from .result import Result
+from .config import Config
+from .util import is_url_valid, generate_cache_filepath
 
-def url_to_filename(url: str):
-    hash_object = hashlib.md5(url.encode("utf-8"))
-    return f"{hash_object.hexdigest()}.json"
+
+SOURCE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "meta": {
+            "type": "object",
+            "properties": {
+                "source": {"type": "string"},
+                "tags": {"type": "array", "items": {"type": "string"}},
+            },
+        },
+        "defs": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "acro": {"type": "string"},
+                    "full": {"type": "string"},
+                    "comment": {"type": "string"},
+                    "suggested": {"type": "array", "items": {"type": "string"}},
+                    "tags": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["acro", "full"],
+            },
+        },
+    },
+    "required": ["defs"],
+}
+
+
+class LookupType(Enum):
+    JSON = auto()
+    JSON_REMOTE = auto()
+    SILMARIL = auto()
 
 
 class LookupBase(object):
@@ -54,39 +87,22 @@ class LookupBase(object):
         return []
 
 
-class LookupRemoteJSON(LookupBase):
-    def __init__(self, url):
-        self.url = url
-        self.cache_filepath = os.path.join(get_cache_dir(), url_to_filename(url))
-        self.lut = defaultdict(list)
+class LookupFile(LookupBase):
+    def __init__(self, filepath, json_data=None, source=None):
+        self.filepath = filepath
+        self.lut = None
+        self.source = source if source else filepath
 
     def load(self, force=False) -> None:
-        # first check if cache file exists
-        if not os.path.isfile(self.cache_filepath) or force:
-            self.update_cache()
-
-        if len(self.lut) == 0 or force:
-            with click.open_file(self.cache_filepath) as f:
+        if not self.lut or force:
+            self.lut = defaultdict(list)
+            with click.open_file(self.filepath) as f:
                 json_raw = json.load(f)
-                if not is_valid_json_def(json_raw):
-                    print("INVALID DEF FILE")
-                    return
 
                 for item in json_raw["defs"]:
                     self.lut[item["acro"].lower()].append(
-                        Result.fromJSON(item, meta=json_raw["meta"], source=self.url)
+                        Result.fromJSON(item, meta=json_raw["meta"], source=self.source)
                     )
-
-    def update_cache(self, force=False) -> None:
-        req = requests.get(self.url)
-        decoded_data = json.loads(req.text)
-
-        directory = os.path.dirname(self.cache_filepath)
-        if not os.path.exists(directory):
-            os.makedirs(directory)
-
-        with click.open_file(self.cache_filepath, mode="w+") as f:
-            f.write(json.dumps(decoded_data))
 
     def drop(self):
         self.lut = None
@@ -94,40 +110,8 @@ class LookupRemoteJSON(LookupBase):
     def keys(self):
         return self.lut.keys()
 
-    def __getitem__(self, key):
-        if len(self.lut) == 0:
-            self.load()
-        return self.lut.get(key, [])
-
-
-class LookupLocalJSON(LookupBase):
-    def __init__(self, filepath):
-        self.filepath = filepath
-        self.lut = defaultdict(list)
-
-    def load(self, force=False) -> None:
-        if len(self.lut) == 0 or force:
-            with click.open_file(self.filepath) as f:
-                json_raw = json.load(f)
-                if not is_valid_json_def(json_raw):
-                    print("INVALID DEF FILE")
-                    return
-
-                for item in json_raw["defs"]:
-                    self.lut[item["acro"].lower()].append(
-                        Result.fromJSON(
-                            item, meta=json_raw["meta"], source=self.filepath
-                        )
-                    )
-
-    def drop(self):
-        self.lut = defaultdict(list)
-
-    def keys(self):
-        return self.lut.keys()
-
     def __getitem__(self, key) -> List[Result]:
-        if len(self.lut) == 0:
+        if self.lut is None:
             self.load()
         return self.lut.get(key, [])
 
@@ -153,29 +137,151 @@ class LookupSilmaril(LookupBase):
         ]
 
 
-def create_all_luts(config: Config) -> List[Any]:
-    """Creates a list of LUTs from the given configuration. Assumes the configuration has been validated
+class LookupFactory:
+    @classmethod
+    def create(csl, type: LookupType, url=None, path=None, force=False):
+        if type is LookupType.JSON:
+            if not os.path.isfile(path):
+                raise TypeError(
+                    f"Invalid path ({path}) specified. Please check your config file. "
+                )
 
-    Args:
-        config (Config): Configuration object
+            try:
+                with click.open_file(path) as f:
+                    json_data = json.load(f)
+                    validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
+            except ValueError as e:
+                click.echo(f"JSON loaded from {path} is not valid")
+                click.echo(e)
+                return None
+            except ValidationError as e:
+                click.echo(
+                    f"JSON loaded from {path} is not a valid definiton source file"
+                )
+                click.echo(e)
+                return None
 
-    Returns:
-        List(LookupBase): List of LUTs
-    """
-    luts = []
-    for url in config.get_urls():
-        luts.append(LookupRemoteJSON(url))
+            return LookupFile(filepath=path, source=path)
 
-    for path in config.get_paths():
-        if os.path.isfile(path):
-            luts.append(LookupLocalJSON(path))
-        elif os.path.isdir(path):
-            for dirpath, _, files in os.walk(os.path.abspath(path)):
-                for file in files:
-                    if file.endswith(".json"):
-                        luts.append(LookupLocalJSON(os.path.join(dirpath, file)))
+        elif type is LookupType.JSON_REMOTE:
+            # First check if it is a valid url:
+            if not is_url_valid(url):
+                raise TypeError(
+                    f"Invalid url ({url}) specified. Please check your config file. "
+                )
 
-    silmaril_config = config.get_third_party("silmaril")
-    if silmaril_config and silmaril_config["enable"]:
-        luts.append(LookupSilmaril(silmaril_config["uri"]))
-    return luts
+            cache = generate_cache_filepath(url)
+
+            if not os.path.isfile(cache) or force:
+                # Check if address is reachable.
+                r = requests.head(url)
+                if r.status_code != 200:
+                    click.echo(
+                        f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
+                    )
+                    return None
+
+                try:
+                    raw = requests.get(url).text
+                    json_data = json.loads(raw)
+                    validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
+                except ValueError as e:
+                    click.echo(f"JSON fetched from {url} is not valid")
+                    click.echo(e)
+                    return None
+                except ValidationError as e:
+                    click.echo(
+                        f"JSON fetched from {url} is not a valid definiton source file"
+                    )
+                    click.echo(e)
+                    return None
+
+                # Ensure the directory exists
+                directory = os.path.dirname(cache)
+                if not os.path.exists(directory):
+                    os.makedirs(directory)
+                with click.open_file(cache, mode="w+") as f:
+                    f.write(json.dumps(json_data))
+
+            # Data downloaded and valid
+            return LookupFile(filepath=cache, source=url)
+
+        elif type is LookupType.SILMARIL:
+            if not is_url_valid(url):
+                raise TypeError(
+                    f"Invalid url ({url}) specified. Please check your config file. "
+                )
+
+            r = requests.head(url)
+            if r.status_code != 200:
+                click.echo(
+                    f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
+                )
+                return None
+            return LookupSilmaril(uri=url)
+
+        else:
+            print(f"Unknown type {type} {args}")
+        return None
+
+    @classmethod
+    def from_config(cls, config: Config, force=False):
+        sources = []
+        for url in config.get_urls():
+            new = LookupFactory.create(LookupType.JSON_REMOTE, url=url, force=force)
+            if new:
+                sources.append(new)
+
+        for path in config.get_paths():
+            if os.path.isfile(path):
+                new = LookupFactory.create(LookupType.JSON, path=path)
+                print(new)
+
+            elif os.path.isdir(path):
+                for dirpath, _, files in os.walk(os.path.abspath(path)):
+                    for file in files:
+                        if file.endswith(".json"):
+                            new = LookupFactory.create(
+                                LookupType.JSON, path=os.path.join(dirpath, file)
+                            )
+                            print(new)
+
+        silmaril_config = config.get_third_party("silmaril")
+        if silmaril_config and silmaril_config["enable"]:
+            new = LookupFactory.create(LookupType.SILMARIL, url=silmaril_config["uri"])
+            if new:
+                sources.append(new)
+
+        return sources if sources else None
+
+
+class LookupCollector(object):
+    """The mega lookup. Takes in a list of Lookup objects for easy searching"""
+
+    def __init__(self, config: Config = None, luts: Optional[List] = None):
+        self.sources = LookupFactory.from_config(config)
+
+    def keys(self) -> Optional[list]:
+        return [src.keys() for src in self.sources]
+
+    def find(self, acronym: str) -> Optional[list]:
+        matches = []
+        for lut in self.sources:
+            temp = lut[acronym]
+            if temp:
+                matches = matches + temp
+
+        return matches if len(matches) > 0 else None
+
+    def find_similar(self, acronym: str) -> Optional[list]:
+        suggested = []
+        for lut in self.sources:
+            temp = difflib.get_close_matches(acronym, lut.keys())
+            suggested = suggested + temp
+        return suggested if len(suggested) > 0 else None
+
+    def __getitem__(self, key) -> Optional[List[Result]]:
+        return self.find(key)
+
+    def get_luts(self):
+        return self.sources

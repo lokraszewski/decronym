@@ -6,102 +6,8 @@ import hashlib
 import re
 from jsonschema import validate, ValidationError
 from pkg_resources import resource_filename
-
-
-DECRO_PATH = os.path.join(os.environ["HOME"], ".config/decronym")
-PATH_CACHE = os.path.join(DECRO_PATH, "cache")
-DEFAULT_DBS = os.path.join(DECRO_PATH, "data")
-
-
-JSON_DICT_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "meta": {
-            "type": "object",
-            "properties": {
-                "source": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-            },
-        },
-        "defs": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "acro": {"type": "string"},
-                    "full": {"type": "string"},
-                    "comment": {"type": "string"},
-                    "suggested": {"type": "array", "items": {"type": "string"}},
-                    "tags": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["acro", "full"],
-            },
-        },
-    },
-    "required": ["defs"],
-}
-
-URL_REGEX = re.compile(
-    "^"
-    # protocol identifier
-    "(?:(?:https?|ftp)://)"
-    # user:pass authentication
-    "(?:\S+(?::\S*)?@)?" "(?:"
-    # IP address exclusion
-    # private & local networks
-    "(?!(?:10|127)(?:\.\d{1,3}){3})"
-    "(?!(?:169\.254|192\.168)(?:\.\d{1,3}){2})"
-    "(?!172\.(?:1[6-9]|2\d|3[0-1])(?:\.\d{1,3}){2})"
-    # IP address dotted notation octets
-    # excludes loopback network 0.0.0.0
-    # excludes reserved space >= 224.0.0.0
-    # excludes network & broadcast addresses
-    # (first & last IP address of each class)
-    "(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])"
-    "(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}"
-    "(?:\.(?:[1-9]\d?|1\d\d|2[0-4]\d|25[0-4]))"
-    "|"
-    # host name
-    "(?:(?:[a-z\u00a1-\uffff0-9]-?)*[a-z\u00a1-\uffff0-9]+)"
-    # domain name
-    "(?:\.(?:[a-z\u00a1-\uffff0-9]-?)*[a-z\u00a1-\uffff0-9]+)*"
-    # TLD identifier
-    "(?:\.(?:[a-z\u00a1-\uffff]{2,}))" ")"
-    # port number
-    "(?::\d{2,5})?"
-    # resource path
-    "(?:/\S*)?" "$",
-    re.UNICODE,
-)
-
-
-def get_cache_dir():
-    return os.path.join(os.environ["HOME"], ".config/decronym", "cache")
-
-
-def is_valid_json_def(instance):
-    try:
-        validate(schema=JSON_DICT_SCHEMA, instance=instance)
-    except ValidationError as e:
-        print(e)
-        return False
-    return True
-
-
-def is_valid_url(input) -> bool:
-    return bool(URL_REGEX.match(input))
-
-
-def is_valid_dir(input) -> bool:
-    return os.path.isdir(input)
-
-
-def is_valid_def_file(input) -> bool:
-    return os.path.isfile(input) and input.endswith("*.json")
-
-
-def is_valid_local_source(input) -> bool:
-    return is_valid_def_file(input) or is_valid_dir(input)
+from enum import Enum, auto
+from .util import is_url_valid
 
 
 def config_remove_menu(items, menu):
@@ -203,9 +109,6 @@ class Config(object):
         hash_object = hashlib.md5(toml.dumps(self.config).encode("UTF-8"))
         return hash_object.hexdigest()
 
-    def get_cache_dir(self):
-        return os.path.join(os.environ["HOME"], ".config/decronym", "cache")
-
     def get_urls(self):
         return self.config["source"]["urls"]
 
@@ -239,9 +142,9 @@ class Config(object):
             self.config["source"]["paths"].append(input)
 
     def add_source(self, input):
-        if is_valid_url(input):
+        if is_url_valid(input):
             self.add_url(input)
-        elif is_valid_local_source(input):
+        elif os.path.isfile(input) or os.path.isdir(input):
             self.add_path(input)
 
     def click_config_remove(self):

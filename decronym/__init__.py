@@ -20,25 +20,15 @@ from typing import (
     cast,
     TYPE_CHECKING,
 )
-from collections import defaultdict
+import click
+import os
+import json
+from functools import lru_cache, partial, wraps
+
 from .lookup import *
 from .result import *
-from .config import *
-import click
-from datetime import datetime
-from functools import lru_cache, partial, wraps
-import toml
-import os
-import textwrap
-import time
-import json
-from json import JSONEncoder
-import random
-import jsonpickle
-import re
-import math
-import hashlib
-import difflib
+from .config import Config
+from .filter import *
 
 out = partial(click.secho, bold=False, err=True)
 err = partial(click.secho, fg="red", err=True)
@@ -80,40 +70,23 @@ def cli(ctx, config):
 )
 def find(ctx, acronyms, tags):
     """Searches for acronyms in provided souces."""
-    # First build a list of files that are being searched.
-    all_matches = defaultdict(list)
-    all_luts = create_all_luts(ctx.obj)
-    for lut in all_luts:
-        for acronym in acronyms:
-            matches = lut[acronym]
-            # Filter the results if the user has given any tags.
-            # If any of the tags matches, the result will be shown.
-            if tags and matches:
-                matches = [r for r in matches if not set(r.tags).isdisjoint(tags)]
-            if matches:
-                all_matches[acronym] = matches + all_matches[acronym]
 
-    for acronym, matches in all_matches.items():
-        click.secho(acronym, bold=True, fg="green")
-        for match in matches:
-            if type(match) is Result:
-                print(match.pretty())
-
+    lut = LookupCollector(ctx.obj)
     for acronym in acronyms:
-        if acronym not in all_matches:
+        unfiltered = lut.find(acronym)
+        matches, filtered = filter(unfiltered, tags=tags)
+
+        if matches:
+            click.secho(acronym, bold=True, fg="green")
+            for match in matches:
+                print(match.pretty())
+        elif filtered:
+            click.echo("Some entries filtered, try running without filters?")
+        else:
             err(f"No entires for '{acronym}' found!")
-            suggested = []
-            for lut in all_luts:
-                temp = difflib.get_close_matches(acronym, lut.keys())
-                suggested = suggested + temp
-
-            if suggested:
-                click.echo(f"Suggested: {set(suggested)}")
-
-
-def test(path, data):
-    with click.open_file(path, mode="w+") as f:
-        f.write(json.dumps(data))
+            similar = lut.find_similar(acronym)
+            if similar:
+                click.echo(f"Suggested: {set(similar)}")
 
 
 @cli.command()
@@ -121,12 +94,10 @@ def test(path, data):
 def clean(ctx):
     """Cleans local cache"""
 
-    luts = create_all_luts(config=ctx.obj)
     with click.progressbar(
         os.walk(os.path.abspath(ctx.obj.get_cache_dir())),
         label="Cleaning cache",
         fill_char=click.style("#", fg="green"),
-        length=len(luts),
     ) as bar:
         for dir, _, files in bar:
             for file in files:
@@ -139,7 +110,10 @@ def clean(ctx):
 @click.pass_context
 def update(ctx):
     """Updates locally cached definition files based on config. """
-    luts = create_all_luts(config=ctx.obj)
+
+    # Create all sources with force flag enabled, this recreates cache files where relevant.
+    luts = LookupFactory.from_config(ctx.obj, force=True)
+
     with click.progressbar(
         luts,
         label="Updating cache",

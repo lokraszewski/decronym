@@ -12,5 +12,5 @@ urls = [
     ]
 
 [source.silmaril]
-enable = false
+enable = true
 uri = "http://acronyms.silmaril.ie/cgi-bin/xaa"
