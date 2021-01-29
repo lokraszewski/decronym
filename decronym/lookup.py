@@ -6,6 +6,7 @@ import click
 import re
 import difflib
 
+from bs4 import BeautifulSoup
 from jsonschema import validate, ValidationError
 from collections import defaultdict
 from lxml import etree
@@ -71,6 +72,7 @@ class LookupType(Enum):
     JSON = auto()
     JSON_REMOTE = auto()
     SILMARIL = auto()
+    TIMEDATE = auto()
 
 
 class LookupBase(object):
@@ -114,6 +116,41 @@ class LookupFile(LookupBase):
         if self.lut is None:
             self.load()
         return self.lut.get(key, [])
+
+
+class LookupTimeAndDate(LookupBase):
+    def __init__(self, url):
+        self.url = url
+
+    def keys(self):
+        return []
+
+    def __getitem__(self, key) -> List[Result]:
+        r = requests.get(f"{self.url}{key}")
+        if r.status_code != 200:
+            return []
+
+        html_text = r.text.encode("UTF-8")
+        soup = BeautifulSoup(html_text, "html.parser")
+        if soup.find(text="Unknown timezone abbreviation"):
+            return []
+
+        hrmn = soup.find(id="hourmin0")
+        sec = soup.find(id="sec0")
+        if hrmn and sec:
+            comment = f"Time now: {hrmn.text}:{sec.text}"
+        else:
+            comment = None
+
+        acronym = soup.find(id="bct")
+        return [
+            Result(
+                key,
+                full=acronym.contents[-1].lstrip(),
+                source=self.url,
+                comment=comment,
+            )
+        ]
 
 
 class LookupSilmaril(LookupBase):
@@ -219,9 +256,20 @@ class LookupFactory:
                 )
                 return None
             return LookupSilmaril(uri=url)
-
+        elif type is LookupType.TIMEDATE:
+            if not is_url_valid(url):
+                raise TypeError(
+                    f"Invalid url ({url}) specified. Please check your config file. "
+                )
+            r = requests.head(url)
+            if r.status_code != 200:
+                click.echo(
+                    f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
+                )
+                return None
+            return LookupTimeAndDate(url=url)
         else:
-            print(f"Unknown type {type} {args}")
+            print(f"Unknown type {type} ")
         return None
 
     @classmethod
@@ -249,6 +297,12 @@ class LookupFactory:
         silmaril_config = config.get_third_party("silmaril")
         if silmaril_config and silmaril_config["enable"]:
             new = LookupFactory.create(LookupType.SILMARIL, url=silmaril_config["uri"])
+            if new:
+                sources.append(new)
+
+        timedate_config = config.get_third_party("timeanddate")
+        if timedate_config and timedate_config["enable"]:
+            new = LookupFactory.create(LookupType.TIMEDATE, url=timedate_config["url"])
             if new:
                 sources.append(new)
 

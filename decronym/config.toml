@@ -14,3 +14,7 @@ urls = [
 [source.silmaril]
 enable = true
 uri = "http://acronyms.silmaril.ie/cgi-bin/xaa"
+
+[source.timeanddate]
+enable = true
+url = "https://www.timeanddate.com/time/zones/"
