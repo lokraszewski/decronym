@@ -73,6 +73,7 @@ class LookupType(Enum):
     JSON_REMOTE = auto()
     SILMARIL = auto()
     TIMEDATE = auto()
+    ISO_CURRENCY = auto()
 
 
 class LookupBase(object):
@@ -149,164 +150,187 @@ class LookupTimeAndDate(LookupBase):
                 full=acronym.contents[-1].lstrip(),
                 source=self.url,
                 comment=comment,
+                tags=["timezone"],
             )
         ]
 
 
-class LookupSilmaril(LookupBase):
-    def __init__(self, uri):
-        self.uri = uri
+class LookupCurrency(LookupBase):
+    def __init__(self, url):
+        self.url = url
 
     def keys(self):
         return []
 
     def __getitem__(self, key) -> List[Result]:
-        root = etree.fromstring(requests.get(f"{self.uri}?{key}").text.encode("UTF-8"))
+        r = requests.get(f"{self.url}")
+        if r.status_code != 200:
+            return []
+
+        html_text = r.text.encode("UTF-8")
+        soup = BeautifulSoup(html_text, "xml")
+
+        matches = soup.find_all(
+            lambda tag: tag.name == "CcyNtry"
+            and tag.find("Ccy")
+            and tag.find("Ccy").text == key.upper()
+        )
+
+        names = set([tag.find("CcyNm").text for tag in matches if tag.find("CcyNm")])
 
         return [
-            Result(
-                key,
-                full=acro.findtext("expan", default=""),
-                comment=acro.findtext("comment", default=""),
-                source=self.uri,
-            )
-            for acro in root.findall(".//acro")
+            Result(key.upper(), full=name, source=self.url, tags=["iso", "currency"])
+            for name in names
         ]
 
 
 class LookupFactory:
     @classmethod
-    def create(csl, type: LookupType, url=None, path=None, force=False):
-        if type is LookupType.JSON:
-            if not os.path.isfile(path):
-                raise TypeError(
-                    f"Invalid path ({path}) specified. Please check your config file. "
+    def create_json(cls, path, force=False, source=None):
+        if not os.path.isfile(path):
+            raise TypeError(
+                f"Invalid path ({path}) specified. Please check your config file. "
+            )
+
+        if source is None:
+            source = path
+
+        try:
+            with click.open_file(path) as f:
+                json_data = json.load(f)
+                validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
+        except ValueError as e:
+            click.echo(f"JSON loaded from {path} is not valid")
+            click.echo(e)
+            return None
+        except ValidationError as e:
+            click.echo(f"JSON loaded from {path} is not a valid definiton source file")
+            click.echo(e)
+            return None
+
+        return LookupFile(filepath=path, source=source)
+
+    @classmethod
+    def create_json_remote(cls, url, force=False):
+        # First check if it is a valid url:
+        if not is_url_valid(url):
+            raise TypeError(
+                f"Invalid url ({url}) specified. Please check your config file. "
+            )
+
+        cache = generate_cache_filepath(url)
+        if not os.path.isfile(cache) or force:
+            # Check if address is reachable.
+            r = requests.head(url)
+            if r.status_code != 200:
+                click.echo(
+                    f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
                 )
+                return None
 
             try:
-                with click.open_file(path) as f:
-                    json_data = json.load(f)
-                    validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
+                raw = requests.get(url).text
+                json_data = json.loads(raw)
+                validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
             except ValueError as e:
-                click.echo(f"JSON loaded from {path} is not valid")
+                click.echo(f"JSON fetched from {url} is not valid")
                 click.echo(e)
                 return None
             except ValidationError as e:
                 click.echo(
-                    f"JSON loaded from {path} is not a valid definiton source file"
+                    f"JSON fetched from {url} is not a valid definiton source file"
                 )
                 click.echo(e)
                 return None
 
-            return LookupFile(filepath=path, source=path)
+            # Ensure the directory exists
+            directory = os.path.dirname(cache)
+            if not os.path.exists(directory):
+                os.makedirs(directory)
+            with click.open_file(cache, mode="w+") as f:
+                f.write(json.dumps(json_data))
+
+        # Data downloaded and valid
+        return cls.create_json(path=cache, source=url)
+
+    @classmethod
+    def create_time_date(cls, url, force=False):
+        if not is_url_valid(url):
+            raise TypeError(
+                f"Invalid url ({url}) specified. Please check your config file. "
+            )
+        r = requests.head(url)
+        if r.status_code != 200:
+            click.echo(f"URL ({url}) unreachable (code:{r.status_code}) - skipping.")
+            return None
+        return LookupTimeAndDate(url=url)
+
+    @classmethod
+    def create_iso_currency(cls, url, force=False):
+        if not is_url_valid(url):
+            raise TypeError(
+                f"Invalid url ({url}) specified. Please check your config file. "
+            )
+        r = requests.head(url)
+        if r.status_code != 200:
+            click.echo(f"URL ({url}) unreachable (code:{r.status_code}) - skipping.")
+            return None
+        return LookupCurrency(url=url)
+
+    @classmethod
+    def create(cls, type: LookupType, url=None, path=None, force=False):
+        if type is LookupType.JSON:
+            return cls.create_json(path=path, force=force)
 
         elif type is LookupType.JSON_REMOTE:
-            # First check if it is a valid url:
-            if not is_url_valid(url):
-                raise TypeError(
-                    f"Invalid url ({url}) specified. Please check your config file. "
-                )
+            return cls.create_json_remote(url=url, force=force)
 
-            cache = generate_cache_filepath(url)
-
-            if not os.path.isfile(cache) or force:
-                # Check if address is reachable.
-                r = requests.head(url)
-                if r.status_code != 200:
-                    click.echo(
-                        f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
-                    )
-                    return None
-
-                try:
-                    raw = requests.get(url).text
-                    json_data = json.loads(raw)
-                    validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
-                except ValueError as e:
-                    click.echo(f"JSON fetched from {url} is not valid")
-                    click.echo(e)
-                    return None
-                except ValidationError as e:
-                    click.echo(
-                        f"JSON fetched from {url} is not a valid definiton source file"
-                    )
-                    click.echo(e)
-                    return None
-
-                # Ensure the directory exists
-                directory = os.path.dirname(cache)
-                if not os.path.exists(directory):
-                    os.makedirs(directory)
-                with click.open_file(cache, mode="w+") as f:
-                    f.write(json.dumps(json_data))
-
-            # Data downloaded and valid
-            return LookupFile(filepath=cache, source=url)
-
-        elif type is LookupType.SILMARIL:
-            if not is_url_valid(url):
-                raise TypeError(
-                    f"Invalid url ({url}) specified. Please check your config file. "
-                )
-
-            r = requests.head(url)
-            if r.status_code != 200:
-                click.echo(
-                    f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
-                )
-                return None
-            return LookupSilmaril(uri=url)
         elif type is LookupType.TIMEDATE:
-            if not is_url_valid(url):
-                raise TypeError(
-                    f"Invalid url ({url}) specified. Please check your config file. "
-                )
-            r = requests.head(url)
-            if r.status_code != 200:
-                click.echo(
-                    f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
-                )
-                return None
-            return LookupTimeAndDate(url=url)
+            return cls.create_time_date(url=url, force=force)
+
+        elif type is LookupType.ISO_CURRENCY:
+            return cls.create_iso_currency(url=url)
         else:
             print(f"Unknown type {type} ")
-        return None
+            return None
+
+    @classmethod
+    def name_to_type(cls, name: str) -> LookupType:
+        match = {
+            "path": LookupType.JSON,
+            "url": LookupType.JSON_REMOTE,
+            "timeanddate": LookupType.TIMEDATE,
+            "iso_currency": LookupType.ISO_CURRENCY,
+        }
+        return match[name]
 
     @classmethod
     def from_config(cls, config: Config, force=False):
         sources = []
-        for url in config.get_urls():
-            new = LookupFactory.create(LookupType.JSON_REMOTE, url=url, force=force)
-            if new:
-                sources.append(new)
+        for name, details in config.get_sources():
+            type = cls.name_to_type(name)
+            if type == LookupType.JSON_REMOTE:
+                for url in details:
+                    sources.append(LookupFactory.create(type, url=url))
 
-        for path in config.get_paths():
-            if os.path.isfile(path):
-                new = LookupFactory.create(LookupType.JSON, path=path)
-                print(new)
+            elif type == LookupType.JSON:
+                for path in details:
+                    if os.path.isfile(path):
+                        sources.append(LookupFactory.create(type, path=path))
+                    elif os.path.isdir(path):
+                        for dirpath, _, files in os.walk(os.path.abspath(path)):
+                            for file in files:
+                                if file.endswith(".json"):
+                                    sources.append(
+                                        LookupFactory.create(
+                                            type, path=os.path.join(dirpath, file)
+                                        )
+                                    )
 
-            elif os.path.isdir(path):
-                for dirpath, _, files in os.walk(os.path.abspath(path)):
-                    for file in files:
-                        if file.endswith(".json"):
-                            new = LookupFactory.create(
-                                LookupType.JSON, path=os.path.join(dirpath, file)
-                            )
-                            print(new)
+            elif details["enable"]:
+                sources.append(LookupFactory.create(type, url=details["url"]))
 
-        silmaril_config = config.get_third_party("silmaril")
-        if silmaril_config and silmaril_config["enable"]:
-            new = LookupFactory.create(LookupType.SILMARIL, url=silmaril_config["uri"])
-            if new:
-                sources.append(new)
-
-        timedate_config = config.get_third_party("timeanddate")
-        if timedate_config and timedate_config["enable"]:
-            new = LookupFactory.create(LookupType.TIMEDATE, url=timedate_config["url"])
-            if new:
-                sources.append(new)
-
-        return sources if sources else None
+        return [src for src in sources if src] if sources else None
 
 
 class LookupCollector(object):
@@ -319,6 +343,9 @@ class LookupCollector(object):
         return [src.keys() for src in self.sources]
 
     def find(self, acronym: str) -> Optional[list]:
+        if not self.sources:
+            return None
+
         matches = []
         for lut in self.sources:
             temp = lut[acronym]
@@ -328,6 +355,9 @@ class LookupCollector(object):
         return matches if len(matches) > 0 else None
 
     def find_similar(self, acronym: str) -> Optional[list]:
+        if not self.sources:
+            return None
+
         suggested = []
         for lut in self.sources:
             temp = difflib.get_close_matches(acronym, lut.keys())

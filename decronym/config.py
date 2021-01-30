@@ -118,6 +118,9 @@ class Config(object):
     def get_third_party(self, name):
         return self.config["source"][name]
 
+    def get_sources(self):
+        return self.config["source"].items()
+
     def set_third_party(self, name):
         pass
 
