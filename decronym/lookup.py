@@ -39,35 +39,6 @@ from .config import Config
 from .util import is_url_valid, generate_cache_filepath
 
 
-SOURCE_JSON_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "meta": {
-            "type": "object",
-            "properties": {
-                "source": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-            },
-        },
-        "defs": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "acro": {"type": "string"},
-                    "full": {"type": "string"},
-                    "comment": {"type": "string"},
-                    "suggested": {"type": "array", "items": {"type": "string"}},
-                    "tags": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["acro", "full"],
-            },
-        },
-    },
-    "required": ["defs"],
-}
-
-
 class LookupType(Enum):
     JSON = auto()
     JSON_REMOTE = auto()
@@ -76,63 +47,129 @@ class LookupType(Enum):
     ISO_CURRENCY = auto()
 
 
-class LookupBase(object):
-    def load(self, force=False) -> None:
-        pass
-
-    def update_cache(self) -> None:
-        pass
-
-    def drop(self):
-        pass
-
-    def __getitem__(self, key) -> List[Result]:
-        return []
-
-
-class LookupFile(LookupBase):
-    def __init__(self, filepath, json_data=None, source=None):
-        self.filepath = filepath
+class CachedLookup(object):
+    def __init__(self, path):
+        self.path = path
+        self.cache_path = generate_cache_filepath(path)
         self.lut = None
-        self.source = source if source else filepath
+        self.meta = {"source": path}
+        self.cache_changed = False
+
+    def __del__(self):
+        if self.cache_changed:
+            self.write_to_cache()
+
+    def load_from_source(self):
+        self.lut = defaultdict(list)
+        for result in Result.load_all_from_file(path=self.path):
+            self.lut[result.acro].append(result)
+
+        self.self.cache_changed = True
+
+    def load_from_cache(self):
+        if not os.path.isfile(self.cache_path):
+            return
+
+        self.lut = defaultdict(list)
+
+        try:
+            for result in Result.load_all_from_file(path=self.cache_path):
+                self.lut[result.acro.lower()].append(result)
+        except Exception as e:
+            print(f"failed to load from cache {e}")
+            self.drop()
 
     def load(self, force=False) -> None:
-        if not self.lut or force:
-            self.lut = defaultdict(list)
-            with click.open_file(self.filepath) as f:
-                json_raw = json.load(f)
+        """ Loads data from either cache or source. """
+        # Attempt to load from cache first:
+        if not force:
+            self.load_from_cache()
 
-                for item in json_raw["defs"]:
-                    self.lut[item["acro"].lower()].append(
-                        Result.fromJSON(item, meta=json_raw["meta"], source=self.source)
-                    )
+        # Data was not loaded successfully from cache.
+        if self.lut is None:
+            self.load_from_source()
+
+    def write_to_cache(self) -> None:
+        """ Writes Lookup data to cache file """
+        if self.lut is None:
+            self.load()
+
+        if self.lut is None:
+            return
+
+        flattened = [item for sublist in self.lut.values() for item in sublist]
+        Result.save_to_json(path=self.cache_path, items=flattened, meta=self.meta)
 
     def drop(self):
+        """ Drops lookup table. """
         self.lut = None
 
     def keys(self):
-        return self.lut.keys()
+        return self.lut.keys() if self.lut else []
 
     def __getitem__(self, key) -> List[Result]:
         if self.lut is None:
             self.load()
+        if self.lut is None:
+            return []
         return self.lut.get(key, [])
 
 
-class LookupTimeAndDate(LookupBase):
+class LookupRemote(CachedLookup):
     def __init__(self, url):
         self.url = url
+        self.cache_path = generate_cache_filepath(url)
+        self.lut = None
+        self.meta = {"source": url}
+        self.cache_changed = False
 
-    def keys(self):
-        return []
+    def load_from_source(self):
+        if not is_url_valid(self.url):
+            raise TypeError(
+                f"Invalid url ({self.url}) specified. Please check your config file. "
+            )
+
+        r = requests.get(self.url)
+        if r.status_code != 200:
+            click.echo(
+                f"URL ({self.url}) unreachable (code:{r.status_code}) - skipping."
+            )
+            return
+
+        self.lut = defaultdict(list)
+        for result in Result.load_all_from_json_str(r.text):
+            self.lut[result.acro.lower()].append(result)
+        self.cache_changed = True
+
+
+class LookupTimeAndDate(CachedLookup):
+    def __init__(self, url):
+        self.url = url
+        self.cache_path = generate_cache_filepath(url)
+        self.lut = None
+        self.meta = {"source": url}
+        self.cache_changed = False
+
+    def load_from_source(self):
+        # not supported
+        pass
 
     def __getitem__(self, key) -> List[Result]:
-        r = requests.get(f"{self.url}{key}")
+        if self.lut is None:
+            self.load()
+
+        # Check if item is in lut
+        if self.lut is not None:
+            if key in self.lut:
+                return self.lut[key]
+
+        r = requests.get(f"{self.url}{key.lower()}")
         if r.status_code != 200:
             return []
 
         html_text = r.text.encode("UTF-8")
         soup = BeautifulSoup(html_text, "html.parser")
+
         if soup.find(text="Unknown timezone abbreviation"):
             return []
 
@@ -140,11 +177,16 @@ class LookupTimeAndDate(LookupBase):
         sec = soup.find(id="sec0")
         if hrmn and sec:
             comment = f"Time now: {hrmn.text}:{sec.text}"
+        elif hrmn:
+            comment = f"Time now: {hrmn.text}"
         else:
             comment = None
 
         acronym = soup.find(id="bct")
-        return [
+        if self.lut is None:
+            self.lut = defaultdict(list)
+
+        self.lut[key.lower()] = [
             Result(
                 key,
                 full=acronym.contents[-1].lstrip(),
@@ -153,132 +195,64 @@ class LookupTimeAndDate(LookupBase):
                 tags=["timezone"],
             )
         ]
+        self.cache_changed = True
+        return self.lut[key]
 
 
-class LookupCurrency(LookupBase):
+class LookupCurrency(CachedLookup):
     def __init__(self, url):
         self.url = url
+        self.cache_path = generate_cache_filepath(url)
+        self.lut = None
+        self.meta = {"source": url}
+        self.cache_changed = False
 
-    def keys(self):
-        return []
-
-    def __getitem__(self, key) -> List[Result]:
+    def load_from_source(self):
         r = requests.get(f"{self.url}")
         if r.status_code != 200:
-            return []
+            # failed to fetch xml.
+            return
 
-        html_text = r.text.encode("UTF-8")
-        soup = BeautifulSoup(html_text, "xml")
+        soup = BeautifulSoup(r.text.encode("UTF-8"), "xml")
 
-        matches = soup.find_all(
-            lambda tag: tag.name == "CcyNtry"
-            and tag.find("Ccy")
-            and tag.find("Ccy").text == key.upper()
-        )
+        self.lut = defaultdict(List)
+        for tag in soup.find_all(lambda tag: tag.name == "CcyNtry" and tag.find("Ccy")):
+            acronym = tag.find("Ccy")
+            key = acronym.text.lower()
+            full = tag.find("CcyNm")
+            if key not in self.lut:
+                self.lut[key] = [
+                    Result(
+                        acronym.text,
+                        full=full.text,
+                        source=self.url,
+                        tags=["iso", "currency"],
+                    )
+                ]
 
-        names = set([tag.find("CcyNm").text for tag in matches if tag.find("CcyNm")])
-
-        return [
-            Result(key.upper(), full=name, source=self.url, tags=["iso", "currency"])
-            for name in names
-        ]
+        self.cache_changed = True
 
 
 class LookupFactory:
     @classmethod
     def create_json(cls, path, force=False, source=None):
-        if not os.path.isfile(path):
-            raise TypeError(
-                f"Invalid path ({path}) specified. Please check your config file. "
-            )
-
-        if source is None:
-            source = path
-
-        try:
-            with click.open_file(path) as f:
-                json_data = json.load(f)
-                validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
-        except ValueError as e:
-            click.echo(f"JSON loaded from {path} is not valid")
-            click.echo(e)
-            return None
-        except ValidationError as e:
-            click.echo(f"JSON loaded from {path} is not a valid definiton source file")
-            click.echo(e)
-            return None
-
-        return LookupFile(filepath=path, source=source)
+        return CachedLookup(path=path)
 
     @classmethod
     def create_json_remote(cls, url, force=False):
-        # First check if it is a valid url:
-        if not is_url_valid(url):
-            raise TypeError(
-                f"Invalid url ({url}) specified. Please check your config file. "
-            )
-
-        cache = generate_cache_filepath(url)
-        if not os.path.isfile(cache) or force:
-            # Check if address is reachable.
-            r = requests.head(url)
-            if r.status_code != 200:
-                click.echo(
-                    f"URL ({url}) unreachable (code:{r.status_code}) - skipping."
-                )
-                return None
-
-            try:
-                raw = requests.get(url).text
-                json_data = json.loads(raw)
-                validate(schema=SOURCE_JSON_SCHEMA, instance=json_data)
-            except ValueError as e:
-                click.echo(f"JSON fetched from {url} is not valid")
-                click.echo(e)
-                return None
-            except ValidationError as e:
-                click.echo(
-                    f"JSON fetched from {url} is not a valid definiton source file"
-                )
-                click.echo(e)
-                return None
-
-            # Ensure the directory exists
-            directory = os.path.dirname(cache)
-            if not os.path.exists(directory):
-                os.makedirs(directory)
-            with click.open_file(cache, mode="w+") as f:
-                f.write(json.dumps(json_data))
-
-        # Data downloaded and valid
-        return cls.create_json(path=cache, source=url)
+        return LookupRemote(url=url)
 
     @classmethod
     def create_time_date(cls, url, force=False):
-        if not is_url_valid(url):
-            raise TypeError(
-                f"Invalid url ({url}) specified. Please check your config file. "
-            )
-        r = requests.head(url)
-        if r.status_code != 200:
-            click.echo(f"URL ({url}) unreachable (code:{r.status_code}) - skipping.")
-            return None
         return LookupTimeAndDate(url=url)
 
     @classmethod
     def create_iso_currency(cls, url, force=False):
-        if not is_url_valid(url):
-            raise TypeError(
-                f"Invalid url ({url}) specified. Please check your config file. "
-            )
-        r = requests.head(url)
-        if r.status_code != 200:
-            click.echo(f"URL ({url}) unreachable (code:{r.status_code}) - skipping.")
-            return None
         return LookupCurrency(url=url)
 
     @classmethod
     def create(cls, type: LookupType, url=None, path=None, force=False):
+
         if type is LookupType.JSON:
             return cls.create_json(path=path, force=force)
 

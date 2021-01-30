@@ -29,6 +29,7 @@ from .lookup import *
 from .result import *
 from .config import Config
 from .filter import *
+from .util import get_cache_dir
 
 out = partial(click.secho, bold=False, err=True)
 err = partial(click.secho, fg="red", err=True)
@@ -95,7 +96,7 @@ def clean(ctx):
     """Cleans local cache"""
 
     with click.progressbar(
-        os.walk(os.path.abspath(ctx.obj.get_cache_dir())),
+        os.walk(os.path.abspath(get_cache_dir())),
         label="Cleaning cache",
         fill_char=click.style("#", fg="green"),
     ) as bar:
@@ -121,7 +122,8 @@ def update(ctx):
         length=len(luts),
     ) as bar:
         for lut in bar:
-            lut.update_cache()
+            lut.load_from_source()
+            lut.write_to_cache()
 
 
 @cli.command()
