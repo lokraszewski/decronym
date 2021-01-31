@@ -136,7 +136,6 @@ class Result(object):
     def load_all_from_file(cls, path):
         with click.open_file(path) as f:
             json_data = json.load(f)
-
         return cls.load_all_from_dict(json_data)
 
     @classmethod

@@ -1,0 +1,33 @@
+{
+    "meta": {
+        "tags": [
+            "GLOBAL_OPTIONAL"
+        ],
+        "source": "GLOBAL_OPTIONAL"
+    },
+    "defs": [
+        {
+            "acro": "REQUIRED",
+            "full": "REQUIRED",
+            "tags": [
+                "OPTIONAL"
+            ]
+        },
+        {
+            "acro": "REQUIRED",
+            "full": "REQUIRED"
+        },
+        {
+            "acro": "REQUIRED",
+            "full": "REQUIRED",
+            "comment": "OPTIONAL"
+        },
+        {
+            "acro": "REQUIRED",
+            "full": "REQUIRED",
+            "suggested": [
+                "OPTIONAL"
+            ]
+        }
+    ]
+}
