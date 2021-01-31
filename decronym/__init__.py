@@ -31,10 +31,6 @@ from .config import Config
 from .filter import *
 from .util import get_cache_dir
 
-out = partial(click.secho, bold=False, err=True)
-err = partial(click.secho, fg="red", err=True)
-out_green = partial(click.secho, bold=True, fg="green", err=True)
-
 
 def callback_config(ctx, param, value):
     """Inject configuration from configuration file."""
@@ -54,7 +50,7 @@ def callback_config(ctx, param, value):
     help=(f"Path to the config file to use."),
 )
 def cli(ctx, config):
-    """<name pending> CLI"""
+    """Decronym CLI"""
     pass
 
 
@@ -70,7 +66,7 @@ def cli(ctx, config):
     help=("Only show matches with given tags."),
 )
 def find(ctx, acronyms, tags):
-    """Searches for acronyms in provided souces."""
+    """Searches for acronyms."""
 
     lut = LookupCollector(ctx.obj)
     for acronym in acronyms:
@@ -84,7 +80,7 @@ def find(ctx, acronyms, tags):
         elif filtered:
             click.echo("Some entries filtered, try running without filters?")
         else:
-            err(f"No entires for '{acronym}' found!")
+            click.echo(f"No entires for '{acronym}' found!")
             similar = lut.find_similar(acronym)
             if similar:
                 click.echo(f"Suggested: {set(similar)}")
@@ -93,7 +89,7 @@ def find(ctx, acronyms, tags):
 @cli.command()
 @click.pass_context
 def clean(ctx):
-    """Cleans local cache"""
+    """Deletes all local cache files."""
 
     with click.progressbar(
         os.walk(os.path.abspath(get_cache_dir())),
@@ -113,7 +109,7 @@ def update(ctx):
     """Updates locally cached definition files based on config. """
 
     # Create all sources with force flag enabled, this recreates cache files where relevant.
-    luts = LookupFactory.from_config(ctx.obj, force=True)
+    luts = LookupFactory.from_config(ctx.obj)
 
     with click.progressbar(
         luts,

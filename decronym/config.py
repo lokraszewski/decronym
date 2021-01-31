@@ -109,40 +109,17 @@ class Config(object):
         hash_object = hashlib.md5(toml.dumps(self.config).encode("UTF-8"))
         return hash_object.hexdigest()
 
-    def get_urls(self):
-        return self.config["source"]["urls"]
-
-    def get_paths(self):
-        return self.config["source"]["paths"]
-
-    def get_third_party(self, name):
-        return self.config["source"][name]
-
     def get_sources(self):
         return self.config["source"].items()
 
-    def set_third_party(self, name):
-        pass
-
-    def set_urls(self, urls):
-        return []
-
-    def set_paths(self, paths):
-        return []
-
-    def get_thirdparty_config(self, name, config={}):
-        pass
-
-    def set_thirdpartycon_config(self, name, config={}):
-        pass
 
     def add_url(self, input):
-        if input not in self.config["source"]["urls"]:
-            self.config["source"]["urls"].append(input)
+        if input not in self.config["source"]["url"]:
+            self.config["source"]["url"].append(input)
 
     def add_path(self, input):
-        if input not in self.config["source"]["paths"]:
-            self.config["source"]["paths"].append(input)
+        if input not in self.config["source"]["path"]:
+            self.config["source"]["path"].append(input)
 
     def add_source(self, input):
         if is_url_valid(input):
@@ -152,7 +129,7 @@ class Config(object):
 
     def click_config_remove(self):
         menu = "source"
-        source_menu = {"u": "urls", "p": "paths", "q": "quit"}
+        source_menu = {"u": "url", "p": "path", "q": "quit"}
 
         click.clear()
         while True:
@@ -165,19 +142,12 @@ class Config(object):
                     menu = source_menu[char]
                 else:
                     click.echo("Invalid input")
-            elif menu == "urls":
-                items, menu = config_remove_menu(self.config["source"]["urls"], menu)
-                self.config["source"]["urls"] = items
-            elif menu == "paths":
-                items, menu = config_remove_menu(self.config["source"]["paths"], menu)
-                self.config["source"]["paths"] = items
+            elif menu == "url":
+                items, menu = config_remove_menu(self.config["source"]["url"], menu)
+                self.config["source"]["url"] = items
+            elif menu == "path":
+                items, menu = config_remove_menu(self.config["source"]["path"], menu)
+                self.config["source"]["path"] = items
             else:  # quit and unhandled states just return
                 break
-        pass
 
-    def click_config_thirdparty(self):
-        click.clear()
-        self.config["source"]["silmaril"]["enable"] = click.confirm(
-            "Enable acronyms.silmaril.ie?",
-            default=self.config["source"]["silmaril"]["enable"],
-        )

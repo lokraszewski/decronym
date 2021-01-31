@@ -64,7 +64,7 @@ class CachedLookup(object):
         for result in Result.load_all_from_file(path=self.path):
             self.lut[result.acro].append(result)
 
-        self.self.cache_changed = True
+        self.cache_changed = True
 
     def load_from_cache(self):
         if not os.path.isfile(self.cache_path):
@@ -235,32 +235,32 @@ class LookupCurrency(CachedLookup):
 
 class LookupFactory:
     @classmethod
-    def create_json(cls, path, force=False, source=None):
+    def create_json(cls, path , source=None):
         return CachedLookup(path=path)
 
     @classmethod
-    def create_json_remote(cls, url, force=False):
+    def create_json_remote(cls, url ):
         return LookupRemote(url=url)
 
     @classmethod
-    def create_time_date(cls, url, force=False):
+    def create_time_date(cls, url ):
         return LookupTimeAndDate(url=url)
 
     @classmethod
-    def create_iso_currency(cls, url, force=False):
+    def create_iso_currency(cls, url ):
         return LookupCurrency(url=url)
 
     @classmethod
-    def create(cls, type: LookupType, url=None, path=None, force=False):
+    def create(cls, type: LookupType, url=None, path=None):
 
         if type is LookupType.JSON:
-            return cls.create_json(path=path, force=force)
+            return cls.create_json(path=path )
 
         elif type is LookupType.JSON_REMOTE:
-            return cls.create_json_remote(url=url, force=force)
+            return cls.create_json_remote(url=url )
 
         elif type is LookupType.TIMEDATE:
-            return cls.create_time_date(url=url, force=force)
+            return cls.create_time_date(url=url )
 
         elif type is LookupType.ISO_CURRENCY:
             return cls.create_iso_currency(url=url)
@@ -279,7 +279,7 @@ class LookupFactory:
         return match[name]
 
     @classmethod
-    def from_config(cls, config: Config, force=False):
+    def from_config(cls, config: Config):
         sources = []
         for name, details in config.get_sources():
             type = cls.name_to_type(name)
