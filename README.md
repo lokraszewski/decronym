@@ -73,6 +73,11 @@ python3 -m venv venv && source venv/bin/activate
 
 * pip install:
 ```sh
+pip install -U decronym
+```
+
+* pip install from test.pypi.org (For the brave):
+```sh
 pip install --index-url https://test.pypi.org/simple/ -U --extra-index-url https://pypi.org/simple decronym
 ```
 

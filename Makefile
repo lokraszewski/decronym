@@ -26,6 +26,9 @@ dist_check: dist
 upload: dist_check
 	. venv/bin/activate; python3 -m twine upload --repository testpypi dist/*
 
+upload_prod: dist_check
+	. venv/bin/activate; python3 -m twine upload dist/*
+
 clean:
 	rm -rf venv
 	rm -rf build
