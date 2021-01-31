@@ -56,7 +56,7 @@ class CachedLookup(object):
         try:
             self.lut = defaultdict(list)
             for result in Result.load_all_from_file(path=self.path):
-                self.lut[result.acro].append(result)
+                self.lut[result.acro.lower()].append(result)
             self.cache_changed = True
         except json.decoder.JSONDecodeError as e:
             out_warn(f"Failed to load from {self.path}, invalid json format")
@@ -119,7 +119,7 @@ class CachedLookup(object):
         if not self.is_valid():
             return []
             
-        return self.lut.get(key, [])
+        return self.lut.get(key.lower(), [])
 
 
 class LookupRemote(CachedLookup):
