@@ -1,10 +1,9 @@
 title = "Decronym Default Config"
 
 [source]
-path = [ ]
+path = [ "tests/data/valid.json",]
 url = [ "https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/ISO-3166-1-alpha-3.json", "https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/file_ext.json", "https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/tech.json",]
 
-[source.misc]
 [source.misc.timeanddate]
 enable = true
 url = "https://www.timeanddate.com/time/zones/"

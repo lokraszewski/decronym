@@ -10,7 +10,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="decronym",
-    version="0.0.1a4",
+    version="0.0.1a6",
     description="CLI for Acronym Lookup",
     author="Lukasz Okraszewski",
     author_email="lokraszewski.work@gmail.com",
