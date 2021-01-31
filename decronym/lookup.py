@@ -324,7 +324,7 @@ class LookupCollector(object):
 
         suggested = []
         for lut in self.sources:
-            temp = difflib.get_close_matches(acronym, lut.keys())
+            temp = difflib.get_close_matches(acronym.lower(), lut.keys())
             suggested = suggested + temp
         return suggested if len(suggested) > 0 else None
 
