@@ -64,14 +64,37 @@ This is an example of how to list things you need to use the software and how to
   ```
 
 ### Installation
-TODO
+**WARNING**: Decronym is currently in alpha and only available from https://test.pypi.org/, once released this README fill be updated
 
+* If you are using venv:
+```sh
+python3 -m venv venv && source venv/bin/activate
+```
+
+* pip install:
+```sh
+pip install --index-url https://test.pypi.org/simple/ -U --extra-index-url https://pypi.org/simple decronym
+```
 
 
 <!-- USAGE EXAMPLES -->
 ## Usage
+```
+❯ decronym
+Usage: decronym [OPTIONS] COMMAND [ARGS]...
 
-TODO
+  Decronym CLI
+
+Options:
+  --config PATH  Path to the config file to use.
+  --help         Show this message and exit.
+
+Commands:
+  clean   Deletes all local cache files.
+  config  Configuration helper.
+  find    Searches for acronyms.
+  update  Updates locally cached definition files based on config.
+```
 
 
 <!-- ROADMAP -->
