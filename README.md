@@ -96,6 +96,20 @@ Commands:
   update  Updates locally cached definition files based on config.
 ```
 
+* Find acronyms:
+![](docs/gif/find_dma_gmt.mp4.gif)
+
+* Clean and update cache files:
+![](docs/gif/clean_update.mp4.gif)
+
+* By default Decronym will search the user `.config` path and default package path for config in that order. You can dump the config to a file or edit it directly:
+![](docs/gif/config_dump_edit.mp4.gif)
+
+* To add sources you can edit the config or use `config --add`:
+![](docs/gif/add_source.mp4.gif)
+
+* To remove sources either delete them from config or use `config --remove`:
+![](docs/gif/remove_source.mp4.gif) 
 
 <!-- ROADMAP -->
 ## Roadmap
