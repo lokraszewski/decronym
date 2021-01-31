@@ -35,16 +35,8 @@ from typing import (
 )
 
 from .result import Result
-from .config import Config
+from .config import Config, SourceType
 from .util import is_url_valid, generate_cache_filepath
-
-
-class LookupType(Enum):
-    JSON = auto()
-    JSON_REMOTE = auto()
-    SILMARIL = auto()
-    TIMEDATE = auto()
-    ISO_CURRENCY = auto()
 
 
 class CachedLookup(object):
@@ -54,17 +46,24 @@ class CachedLookup(object):
         self.lut = None
         self.meta = {"source": path}
         self.cache_changed = False
+        self.valid = True
 
     def __del__(self):
         if self.cache_changed:
             self.write_to_cache()
 
     def load_from_source(self):
-        self.lut = defaultdict(list)
-        for result in Result.load_all_from_file(path=self.path):
-            self.lut[result.acro].append(result)
-
-        self.cache_changed = True
+        try:
+            self.lut = defaultdict(list)
+            for result in Result.load_all_from_file(path=self.path):
+                self.lut[result.acro].append(result)
+            self.cache_changed = True
+        except json.decoder.JSONDecodeError as e:
+            print(f"Failed to load from {self.path}, invalid json format")
+            self.valid = False
+        except ValidationError as e:
+            print(f"Failed to load from {self.path}, contents do not pass validation.")
+            self.valid = False
 
     def load_from_cache(self):
         if not os.path.isfile(self.cache_path):
@@ -107,11 +106,19 @@ class CachedLookup(object):
     def keys(self):
         return self.lut.keys() if self.lut else []
 
+    def is_loaded(self) -> bool:
+        return bool(self.lut is not None)
+
+    def is_valid(self) -> bool:
+        return self.valid
+
     def __getitem__(self, key) -> List[Result]:
-        if self.lut is None:
+        if not self.is_loaded():
             self.load()
-        if self.lut is None:
+
+        if not self.is_valid():
             return []
+            
         return self.lut.get(key, [])
 
 
@@ -122,6 +129,7 @@ class LookupRemote(CachedLookup):
         self.lut = None
         self.meta = {"source": url}
         self.cache_changed = False
+        self.valid = True
 
     def load_from_source(self):
         if not is_url_valid(self.url):
@@ -149,6 +157,7 @@ class LookupTimeAndDate(CachedLookup):
         self.lut = None
         self.meta = {"source": url}
         self.cache_changed = False
+        self.valid = True
 
     def load_from_source(self):
         # not supported
@@ -206,6 +215,7 @@ class LookupCurrency(CachedLookup):
         self.lut = None
         self.meta = {"source": url}
         self.cache_changed = False
+        self.valid = True
 
     def load_from_source(self):
         r = requests.get(f"{self.url}")
@@ -251,58 +261,44 @@ class LookupFactory:
         return LookupCurrency(url=url)
 
     @classmethod
-    def create(cls, type: LookupType, url=None, path=None):
+    def create(cls, type: SourceType, url=None, path=None):
 
-        if type is LookupType.JSON:
+        if type is SourceType.JSON_PATH:
             return cls.create_json(path=path )
 
-        elif type is LookupType.JSON_REMOTE:
+        elif type is SourceType.JSON_URL:
             return cls.create_json_remote(url=url )
 
-        elif type is LookupType.TIMEDATE:
+        elif type is SourceType.TIMEDATE:
             return cls.create_time_date(url=url )
 
-        elif type is LookupType.ISO_CURRENCY:
+        elif type is SourceType.ISO_CURRENCY:
             return cls.create_iso_currency(url=url)
         else:
             print(f"Unknown type {type} ")
             return None
 
     @classmethod
-    def name_to_type(cls, name: str) -> LookupType:
+    def name_to_type(cls, name: str) -> SourceType:
         match = {
-            "path": LookupType.JSON,
-            "url": LookupType.JSON_REMOTE,
-            "timeanddate": LookupType.TIMEDATE,
-            "iso_currency": LookupType.ISO_CURRENCY,
+            "path": SourceType.JSON_PATH,
+            "url": SourceType.JSON_URL,
+            "timeanddate": SourceType.TIMEDATE,
+            "iso_currency": SourceType.ISO_CURRENCY,
         }
         return match[name]
 
     @classmethod
     def from_config(cls, config: Config):
         sources = []
-        for name, details in config.get_sources():
-            type = cls.name_to_type(name)
-            if type == LookupType.JSON_REMOTE:
-                for url in details:
-                    sources.append(LookupFactory.create(type, url=url))
-
-            elif type == LookupType.JSON:
-                for path in details:
-                    if os.path.isfile(path):
-                        sources.append(LookupFactory.create(type, path=path))
-                    elif os.path.isdir(path):
-                        for dirpath, _, files in os.walk(os.path.abspath(path)):
-                            for file in files:
-                                if file.endswith(".json"):
-                                    sources.append(
-                                        LookupFactory.create(
-                                            type, path=os.path.join(dirpath, file)
-                                        )
-                                    )
-
-            elif details["enable"]:
-                sources.append(LookupFactory.create(type, url=details["url"]))
+        for type, cfg in config.get_valid_sources():
+            # print(f"source {type} cfg {cfg}")
+            if type == SourceType.JSON_URL:
+                sources.append(LookupFactory.create(type, url=cfg))
+            elif type == SourceType.JSON_PATH:
+                sources.append(LookupFactory.create(type, path=cfg))
+            else:
+                sources.append(LookupFactory.create(type, url=cfg["url"]))
 
         return [src for src in sources if src] if sources else None
 

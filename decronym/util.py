@@ -41,6 +41,14 @@ def is_url_valid(input) -> bool:
     return bool(URL_REGEX.match(input))
 
 
+def is_url_online(input)-> bool:
+    try:
+        r = requests.head(input, allow_redirects=True,timeout=0.4)
+        return r.status_code == 200
+    except:
+        return False
+        
+
 def generate_cache_filepath(input: str):
     hash_object = hashlib.md5(input.encode("utf-8"))
     dir = get_cache_dir()
