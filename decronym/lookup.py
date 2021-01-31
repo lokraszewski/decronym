@@ -36,7 +36,7 @@ from typing import (
 
 from .result import Result
 from .config import Config, SourceType
-from .util import is_url_valid, generate_cache_filepath
+from .util import *
 
 
 class CachedLookup(object):
@@ -59,10 +59,10 @@ class CachedLookup(object):
                 self.lut[result.acro].append(result)
             self.cache_changed = True
         except json.decoder.JSONDecodeError as e:
-            print(f"Failed to load from {self.path}, invalid json format")
+            out_warn(f"Failed to load from {self.path}, invalid json format")
             self.valid = False
         except ValidationError as e:
-            print(f"Failed to load from {self.path}, contents do not pass validation.")
+            out_warn(f"Failed to load from {self.path}, contents do not pass validation.")
             self.valid = False
 
     def load_from_cache(self):
@@ -75,7 +75,7 @@ class CachedLookup(object):
             for result in Result.load_all_from_file(path=self.cache_path):
                 self.lut[result.acro.lower()].append(result)
         except Exception as e:
-            print(f"failed to load from cache {e}")
+            out_warn(f"failed to load from cache {e}")
             self.drop()
 
     def load(self, force=False) -> None:
@@ -137,17 +137,21 @@ class LookupRemote(CachedLookup):
                 f"Invalid url ({self.url}) specified. Please check your config file. "
             )
 
-        r = requests.get(self.url)
-        if r.status_code != 200:
-            click.echo(
-                f"URL ({self.url}) unreachable (code:{r.status_code}) - skipping."
-            )
-            return
-
-        self.lut = defaultdict(list)
-        for result in Result.load_all_from_json_str(r.text):
-            self.lut[result.acro.lower()].append(result)
-        self.cache_changed = True
+        try:
+            r = requests.get(self.url)
+            if r.status_code != 200:
+                out_warn(
+                    f"URL ({self.url}) unreachable (code:{r.status_code}) - skipping."
+                )
+            self.lut = defaultdict(list)
+            for result in Result.load_all_from_json_str(r.text):
+                self.lut[result.acro.lower()].append(result)
+            self.cache_changed = True
+        except:
+            out_warn(
+                    f"URL ({self.url}) unreachable (code:{r.status_code}) - skipping."
+                )
+            self.valid = False
 
 
 class LookupTimeAndDate(CachedLookup):
@@ -275,24 +279,14 @@ class LookupFactory:
         elif type is SourceType.ISO_CURRENCY:
             return cls.create_iso_currency(url=url)
         else:
-            print(f"Unknown type {type} ")
+            out_err(f"Unknown type {type} ")
             return None
 
-    @classmethod
-    def name_to_type(cls, name: str) -> SourceType:
-        match = {
-            "path": SourceType.JSON_PATH,
-            "url": SourceType.JSON_URL,
-            "timeanddate": SourceType.TIMEDATE,
-            "iso_currency": SourceType.ISO_CURRENCY,
-        }
-        return match[name]
 
     @classmethod
     def from_config(cls, config: Config):
         sources = []
         for type, cfg in config.get_valid_sources():
-            # print(f"source {type} cfg {cfg}")
             if type == SourceType.JSON_URL:
                 sources.append(LookupFactory.create(type, url=cfg))
             elif type == SourceType.JSON_PATH:

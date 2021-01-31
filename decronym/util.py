@@ -2,6 +2,9 @@ import re
 import requests
 import hashlib
 import os
+import click
+from functools import partial
+
 
 URL_REGEX = re.compile(
     "^"
@@ -36,6 +39,10 @@ URL_REGEX = re.compile(
     re.UNICODE,
 )
 
+out = partial(click.secho, bold=False, err=True)
+out_err = partial(click.secho, fg="red", err=True)
+out_success = partial(click.secho, bold=True, fg="green", err=True)
+out_warn = partial(click.secho, fg="yellow", err=True)
 
 def is_url_valid(input) -> bool:
     return bool(URL_REGEX.match(input))

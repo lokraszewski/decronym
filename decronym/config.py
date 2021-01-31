@@ -5,7 +5,7 @@ import toml
 import hashlib
 from pkg_resources import resource_filename
 from enum import Enum, auto
-from .util import is_url_valid, is_url_online
+from .util import *
 from typing import (
     Any,
     Callable,
@@ -154,9 +154,9 @@ class Config(object):
         sources = []
         for url in self.config["source"]["url"]:
             if not is_url_valid(url):
-                print(f"Invalid url ('{url}') in config - skipping")
+                out_warn(f"Invalid url ('{url}') in config - skipping")
             elif not is_url_online(url):
-                print(f"Unreachable url ('{url}') in config - skipping")
+                out_warn(f"Unreachable url ('{url}') in config - skipping")
             else:
                 sources.append((SourceType.JSON_URL, url))
 
@@ -174,9 +174,9 @@ class Config(object):
                 if 'url' in conf:
                     url = conf['url']
                     if not is_url_valid(url):
-                        print(f"Invalid url ('{url}') in config - skipping")
+                        out_warn(f"Invalid url ('{url}') in config - skipping")
                     elif not is_url_online(url):
-                        print(f"Unreachable url ('{url}') in config - skipping")
+                        out_warn(f"Unreachable url ('{url}') in config - skipping")
                     else:
                         sources.append((SourceType.from_str(name), conf))   
 

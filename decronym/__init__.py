@@ -29,7 +29,7 @@ from .lookup import *
 from .result import *
 from .config import Config
 from .filter import *
-from .util import get_cache_dir
+from .util import *
 
 
 def callback_config(ctx, param, value):
@@ -74,16 +74,17 @@ def find(ctx, acronyms, tags):
         matches, filtered = filter(unfiltered, tags=tags)
 
         if matches:
-            click.secho(acronym, bold=True, fg="green")
+            # click.secho(acronym, bold=True, fg="green")
+            out_success(acronym)
             for match in matches:
                 print(match.pretty())
         elif filtered:
-            click.echo("Some entries filtered, try running without filters?")
+            out_warn("Some entries filtered, try running without filters?")
         else:
-            click.echo(f"No entires for '{acronym}' found!")
+            out_warn(f"No entires for '{acronym}' found!")
             similar = lut.find_similar(acronym)
             if similar:
-                click.echo(f"Suggested: {set(similar)}")
+                out(f"Suggested: {set(similar)}")
 
 
 @cli.command()
