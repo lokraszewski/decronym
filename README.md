@@ -64,8 +64,6 @@ This is an example of how to list things you need to use the software and how to
   ```
 
 ### Installation
-**WARNING**: Decronym is currently in alpha and only available from https://test.pypi.org/, once released this README fill be updated
-
 * If you are using venv:
 ```sh
 python3 -m venv venv && source venv/bin/activate
@@ -150,7 +148,8 @@ Project Link: [https://github.com/lokraszewski/decronym](https://github.com/lokr
 <!-- ACKNOWLEDGEMENTS -->
 ## Acknowledgements
 ### Current Third-Party Sources:
-* [acronyms.silmaril.ie](acronyms.silmaril.ie)
+* [currency-iso.org](https://www.currency-iso.org)
+* [timeanddate.com](https://www.timeanddate.com/time/zones/)
 
 
 
