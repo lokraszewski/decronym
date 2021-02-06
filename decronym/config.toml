@@ -11,3 +11,8 @@ url = "https://www.timeanddate.com/time/zones/"
 [source.misc.iso_currency]
 enable = true
 url = "https://www.currency-iso.org/dam/downloads/lists/list_one.xml"
+
+[source.misc.confluence_table]
+enable = false
+url = "https://internal.confluence.com"
+page_id = 0

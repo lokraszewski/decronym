@@ -65,3 +65,8 @@ def generate_cache_filepath(input: str):
 
 def get_cache_dir():
     return os.path.join(os.environ["HOME"], ".config/decronym", "cache")
+
+
+ACRONYM_REGEX = re.compile("^[a-zA-Z0-9\-]+$", re.UNICODE)
+def is_acronym_valid(input) -> bool:
+    return bool(ACRONYM_REGEX.match(input))

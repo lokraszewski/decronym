@@ -91,6 +91,7 @@ class SourceType(Enum):
     JSON_URL = auto()
     TIMEDATE = auto()
     ISO_CURRENCY = auto()
+    CONFLUENCE_TABLE = auto()
 
     @classmethod
     def from_str(cls, label):
@@ -102,6 +103,8 @@ class SourceType(Enum):
             return cls.TIMEDATE
         elif label in ('iso_currency'):
             return cls.ISO_CURRENCY
+        elif label in ('confluence_table'):
+            return cls.CONFLUENCE_TABLE
         else:
             raise NotImplementedError
 class Config(object):

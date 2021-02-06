@@ -5,6 +5,7 @@ import json
 import click
 import re
 import difflib
+import getpass
 
 from bs4 import BeautifulSoup
 from jsonschema import validate, ValidationError
@@ -246,6 +247,60 @@ class LookupCurrency(CachedLookup):
 
         self.cache_changed = True
 
+class LookupConfluenceTable(CachedLookup):
+    def __init__(self, url, page_id=""):
+	#     Expects a confluence table in the followinng format:
+	# |	ACRONYM | FULL | COMMENT
+        self.url = "https://confluence.arm.com"
+        self.page_id = "361053674"
+        self.cache_path = generate_cache_filepath(url)
+        self.lut = None
+        self.meta = {"source": url}
+        self.cache_changed = False
+        self.valid = True
+
+    def load_from_source(self):
+        api_url = '/rest/api/content'
+        print(f"{self.url} requires credentials.")
+        username = input("user: ")
+        password = getpass.getpass("password: ")
+        request_url = f"{self.url}/{api_url}/{self.page_id}?expand=body.storage"
+
+        r = requests.get(request_url, auth=(username, password))
+        if r.status_code != 200:
+            # failed to fetch xml.
+            return
+
+        json_respnse = r.json()
+        soup = BeautifulSoup(json_respnse['body']['storage']['value'].encode("UTF-8"), "html.parser")
+        source_text = f"{json_respnse['title']} at {self.url}"
+        self.lut = defaultdict(List)
+        for row in soup.find_all(lambda tag: tag.name == "tr"):
+            cols = row.find_all(lambda tag: tag.name == 'td')
+            if len(cols) != 3:
+                continue
+
+            acronym = cols[0].text.strip() 
+            full = cols[1].text.strip() 
+            comment = cols[2].text.strip() 
+            
+            if not is_acronym_valid(acronym):
+                continue
+
+            key = acronym.lower()
+            if key not in self.lut:
+                self.lut[key] = [
+                    Result(
+                        acronym,
+                        full=full,
+                        source=source_text,
+                        comment=comment,
+                        tags=["confluence"]
+                    )
+                ]
+                self.cache_changed = True
+
+
 
 class LookupFactory:
     @classmethod
@@ -265,7 +320,7 @@ class LookupFactory:
         return LookupCurrency(url=url)
 
     @classmethod
-    def create(cls, type: SourceType, url=None, path=None):
+    def create(cls, type: SourceType, url=None, path=None, page_id=0):
 
         if type is SourceType.JSON_PATH:
             return cls.create_json(path=path )
@@ -278,6 +333,8 @@ class LookupFactory:
 
         elif type is SourceType.ISO_CURRENCY:
             return cls.create_iso_currency(url=url)
+        elif type is SourceType.CONFLUENCE_TABLE:
+            return LookupConfluenceTable(url, page_id=page_id)
         else:
             out_err(f"Unknown type {type} ")
             return None
@@ -291,6 +348,8 @@ class LookupFactory:
                 sources.append(LookupFactory.create(type, url=cfg))
             elif type == SourceType.JSON_PATH:
                 sources.append(LookupFactory.create(type, path=cfg))
+            elif type == SourceType.CONFLUENCE_TABLE:
+                sources.append(LookupFactory.create(type, url=cfg["url"], page_id=cfg["page_id"]))
             else:
                 sources.append(LookupFactory.create(type, url=cfg["url"]))
 
