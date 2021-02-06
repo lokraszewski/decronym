@@ -5,6 +5,5 @@ jsonschema
 lxml
 requests
 Sphinx
-toml
 bs4
 nose

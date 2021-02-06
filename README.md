@@ -112,7 +112,6 @@ Commands:
 
 
 * To remove sources either delete them from config or use `config --remove`:
-![](https://raw.githubusercontent.com/lokraszewski/decronym/main/docs/gif/remove_source.mp4.gif) 
 
 <!-- ROADMAP -->
 ## Roadmap

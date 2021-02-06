@@ -50,7 +50,7 @@ def is_url_valid(input) -> bool:
 
 def is_url_online(input)-> bool:
     try:
-        r = requests.head(input, allow_redirects=True,timeout=0.4)
+        r = requests.head(input, allow_redirects=True,timeout=2)
         return r.status_code == 200
     except:
         return False

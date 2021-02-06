@@ -63,7 +63,9 @@ class CachedLookup(object):
             out_warn(f"Failed to load from {self.path}, invalid json format")
             self.valid = False
         except ValidationError as e:
-            out_warn(f"Failed to load from {self.path}, contents do not pass validation.")
+            out_warn(
+                f"Failed to load from {self.path}, contents do not pass validation."
+            )
             self.valid = False
 
     def load_from_cache(self):
@@ -119,7 +121,7 @@ class CachedLookup(object):
 
         if not self.is_valid():
             return []
-            
+
         return self.lut.get(key.lower(), [])
 
 
@@ -149,9 +151,7 @@ class LookupRemote(CachedLookup):
                 self.lut[result.acro.lower()].append(result)
             self.cache_changed = True
         except:
-            out_warn(
-                    f"URL ({self.url}) unreachable (code:{r.status_code}) - skipping."
-                )
+            out_warn(f"URL ({self.url}) unreachable (code:{r.status_code}) - skipping.")
             self.valid = False
 
 
@@ -247,12 +247,13 @@ class LookupCurrency(CachedLookup):
 
         self.cache_changed = True
 
+
 class LookupConfluenceTable(CachedLookup):
     def __init__(self, url, page_id=""):
-	#     Expects a confluence table in the followinng format:
-	# |	ACRONYM | FULL | COMMENT
-        self.url = "https://confluence.arm.com"
-        self.page_id = "361053674"
+        # Expects a confluence table in the followinng format:
+        # |	ACRONYM | FULL | COMMENT
+        self.url = url
+        self.page_id = page_id
         self.cache_path = generate_cache_filepath(url)
         self.lut = None
         self.meta = {"source": url}
@@ -260,10 +261,10 @@ class LookupConfluenceTable(CachedLookup):
         self.valid = True
 
     def load_from_source(self):
-        api_url = '/rest/api/content'
-        print(f"{self.url} requires credentials.")
+        print(f"\n{self.url} requires credentials.")
         username = input("user: ")
         password = getpass.getpass("password: ")
+        api_url = "/rest/api/content"
         request_url = f"{self.url}/{api_url}/{self.page_id}?expand=body.storage"
 
         r = requests.get(request_url, auth=(username, password))
@@ -272,18 +273,20 @@ class LookupConfluenceTable(CachedLookup):
             return
 
         json_respnse = r.json()
-        soup = BeautifulSoup(json_respnse['body']['storage']['value'].encode("UTF-8"), "html.parser")
+        soup = BeautifulSoup(
+            json_respnse["body"]["storage"]["value"].encode("UTF-8"), "html.parser"
+        )
         source_text = f"{json_respnse['title']} at {self.url}"
         self.lut = defaultdict(List)
         for row in soup.find_all(lambda tag: tag.name == "tr"):
-            cols = row.find_all(lambda tag: tag.name == 'td')
+            cols = row.find_all(lambda tag: tag.name == "td")
             if len(cols) != 3:
                 continue
 
-            acronym = cols[0].text.strip() 
-            full = cols[1].text.strip() 
-            comment = cols[2].text.strip() 
-            
+            acronym = cols[0].text.strip()
+            full = cols[1].text.strip()
+            comment = cols[2].text.strip()
+
             if not is_acronym_valid(acronym):
                 continue
 
@@ -295,65 +298,52 @@ class LookupConfluenceTable(CachedLookup):
                         full=full,
                         source=source_text,
                         comment=comment,
-                        tags=["confluence"]
+                        tags=["confluence"],
                     )
                 ]
                 self.cache_changed = True
 
 
-
 class LookupFactory:
     @classmethod
-    def create_json(cls, path , source=None):
-        return CachedLookup(path=path)
-
-    @classmethod
-    def create_json_remote(cls, url ):
-        return LookupRemote(url=url)
-
-    @classmethod
-    def create_time_date(cls, url ):
-        return LookupTimeAndDate(url=url)
-
-    @classmethod
-    def create_iso_currency(cls, url ):
-        return LookupCurrency(url=url)
-
-    @classmethod
-    def create(cls, type: SourceType, url=None, path=None, page_id=0):
-
-        if type is SourceType.JSON_PATH:
-            return cls.create_json(path=path )
-
-        elif type is SourceType.JSON_URL:
-            return cls.create_json_remote(url=url )
-
-        elif type is SourceType.TIMEDATE:
-            return cls.create_time_date(url=url )
-
-        elif type is SourceType.ISO_CURRENCY:
-            return cls.create_iso_currency(url=url)
-        elif type is SourceType.CONFLUENCE_TABLE:
-            return LookupConfluenceTable(url, page_id=page_id)
+    def create(cls, source: Dict):
+        type_ = SourceType.from_str(source["type"])
+        if type_ is SourceType.JSON_PATH:
+            return CachedLookup(path=source["path"])
+        elif type_ is SourceType.JSON_URL:
+            return LookupRemote(url=source["url"])
+        elif type_ is SourceType.TIMEDATE:
+            return LookupTimeAndDate(url=source["url"])
+        elif type_ is SourceType.ISO_CURRENCY:
+            return LookupCurrency(url=source["url"])
+        elif type_ is SourceType.CONFLUENCE_TABLE:
+            return LookupConfluenceTable(
+                url=source["url"], page_id=source["page_id"], user=source["username"]
+            )
         else:
             out_err(f"Unknown type {type} ")
             return None
 
-
     @classmethod
     def from_config(cls, config: Config):
         sources = []
-        for type, cfg in config.get_valid_sources():
-            if type == SourceType.JSON_URL:
-                sources.append(LookupFactory.create(type, url=cfg))
-            elif type == SourceType.JSON_PATH:
-                sources.append(LookupFactory.create(type, path=cfg))
-            elif type == SourceType.CONFLUENCE_TABLE:
-                sources.append(LookupFactory.create(type, url=cfg["url"], page_id=cfg["page_id"]))
+        for source in config.get_enabled_sources():
+            type_ = SourceType.from_str(source["type"])
+            if type_ == SourceType.JSON_PATH:
+                path = source["path"]
+                if os.path.isfile(path) and path.endswith(".json"):
+                    sources.append(LookupFactory.create(source))
+                elif os.path.isdir(path):
+                    for dirpath, _, files in os.walk(os.path.abspath(path)):
+                        for file in files:
+                            if file.endswith(".json"):
+                                temp_src = source
+                                temp_src["path"] = os.path.join(dirpath, file)
+                                sources.append(LookupFactory.create(temp_src))
             else:
-                sources.append(LookupFactory.create(type, url=cfg["url"]))
+                sources.append(LookupFactory.create(source))
 
-        return [src for src in sources if src] if sources else None
+        return sources
 
 
 class LookupCollector(object):

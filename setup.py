@@ -10,7 +10,7 @@ with open(path.join(this_directory, "README.md"), encoding="utf-8") as f:
 
 setup(
     name="decronym",
-    version="0.0.1a2",
+    version="0.0.1a9",
     description="CLI for Acronym Lookup",
     author="Lukasz Okraszewski",
     author_email="lokraszewski.work@gmail.com",
@@ -23,7 +23,7 @@ setup(
     packages=find_packages(exclude=("tests", "docs")),
     package_data={
         "decronym": [
-            "config.toml",
+            "config.json",
         ]
     },
     classifiers=[
@@ -49,10 +49,8 @@ setup(
     install_requires=[
         "click",
         "requests",
-        "jsonpickle",
         "jsonschema",
         "requests",
-        "toml",
         "lxml",
         "bs4"
     ],

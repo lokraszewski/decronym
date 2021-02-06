@@ -41,7 +41,7 @@ def callback_config(ctx, param, value):
 @click.group()
 @click.pass_context
 @click.option(
-    "--config",
+    "-c","--config",
     type=click.Path(
         exists=True, file_okay=True, dir_okay=True, readable=True, path_type=str
     ),
@@ -131,14 +131,15 @@ def update(ctx):
     help=("Adds source to config"),
 )
 @click.option(
-    "--thirdparty",
-    is_flag=True,
-    help=("Configure third party providers."),
+    "--remove",
+    multiple=True,
+    type=str,
+    help=("Removes source from config"),
 )
 @click.option(
-    "--remove",
+    "--menu",
     is_flag=True,
-    help=("Prompts a remove menu"),
+    help=("Prompts config menu"),
 )
 @click.option(
     "--edit",
@@ -150,19 +151,19 @@ def update(ctx):
     help=("Dumps the config to file (or stdout: '-' )"),
 )
 @click.pass_context
-def config(ctx, add, remove, thirdparty, edit, dump):
+def config(ctx, add, remove, edit, dump, menu):
     """Configuration helper."""
     if dump:
         ctx.obj.save(path=dump)
         return
-
     if edit:
         click.edit(filename=ctx.obj.path)
         return
+    elif menu:
+        ctx.obj.config_menu()
     elif remove:
-        ctx.obj.click_config_remove()
-    elif thirdparty:
-        ctx.obj.click_config_thirdparty()
+        for input in remove:
+            ctx.obj.remove_source(input)
     elif add:
         for input in add:
             ctx.obj.add_source(input)

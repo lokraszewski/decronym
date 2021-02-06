@@ -3,4 +3,4 @@ include LICENSE
 
 include Makefile
 include setup.py
-include config.toml
+include config.json
