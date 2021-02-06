@@ -318,7 +318,7 @@ class LookupFactory:
             return LookupCurrency(url=source["url"])
         elif type_ is SourceType.CONFLUENCE_TABLE:
             return LookupConfluenceTable(
-                url=source["url"], page_id=source["page_id"], user=source["username"]
+                url=source["url"], page_id=source["page_id"]
             )
         else:
             out_err(f"Unknown type {type} ")
