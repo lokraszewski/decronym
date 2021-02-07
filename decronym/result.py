@@ -1,16 +1,18 @@
 # -*- coding: utf-8 -*-
 import hashlib
 import os
-import requests
-import json
 from jsonschema import validate, ValidationError
+from dataclasses import dataclass, field
+import dataclasses, json
+from dataclasses_json import dataclass_json
 import click
 from lxml import etree
 import textwrap
 from typing import (
     Any,
     Callable,
-    Collection,
+    Collection, 
+    DefaultDict,
     Dict,
     Generator,
     Generic,
@@ -30,50 +32,14 @@ from typing import (
     TYPE_CHECKING,
 )
 
-JSON_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "meta": {
-            "type": "object",
-            "properties": {
-                "source": {"type": "string"},
-                "tags": {"type": "array", "items": {"type": "string"}},
-            },
-            "optional": True,
-        },
-        "defs": {
-            "type": "array",
-            "items": {
-                "type": "object",
-                "properties": {
-                    "acro": {"type": "string"},
-                    "full": {"type": "string"},
-                    "comment": {"type": "string"},
-                    "suggested": {"type": "array", "items": {"type": "string"}},
-                    "tags": {"type": "array", "items": {"type": "string"}},
-                },
-                "required": ["acro", "full"],
-            },
-        },
-    },
-    "required": ["defs"],
-}
-
-
+@dataclass_json
+@dataclass(unsafe_hash=True)
 class Result(object):
-    def __init__(
-        self,
-        acro: str,
-        full: str,
-        tags: List[str] = [],
-        comment: str = "",
-        source: str = "",
-    ) -> None:
-        self.acro = acro
-        self.full = full
-        self.tags = tags
-        self.comment = comment
-        self.source = source
+    acronym:str
+    full:str
+    comment:str=""
+    source:str=field(default_factory=str, compare=False)
+    tags:List[str]=field(default_factory=list, compare=False)
 
     def pretty(self):
         out = "\t"
@@ -98,51 +64,75 @@ class Result(object):
 
         return out
 
-    def __str__(self) -> str:
-        return self.to_dict().__str__()
+class EnhancedJSONEncoder(json.JSONEncoder):
+        def default(self, o):
+            if dataclasses.is_dataclass(o):
+                return dataclasses.asdict(o)
+            return super().default(o)
+class ResultCache:
+    """ Caches results and saves/loads to a file. 
+    """
+    def __init__(self, path:str=''):
+        self.cache_: Dict[str, Result] = DefaultDict(list)
+        self.path = path
+        self.md5 = None
+        self.load()
 
-    def to_dict(self):
-        return {
-            "acro": self.acro,
-            "full": self.full,
-            "tags": self.tags,
-            "comment": self.comment,
-        }
+    def __del__(self):
+        self.save()
 
-    @classmethod
-    def from_dict(cls, json_dict: Dict, meta: Dict = {}):
-        return cls(
-            acro=json_dict["acro"],
-            full=json_dict["full"],
-            tags=json_dict.get("tags", []) + meta.get("tags", []),
-            comment=json_dict.get("comment", ""),
-            source=meta.get("source", None),
-        )
+    def load(self, path=None):
+        if not path:
+            path = self.path
 
-    @classmethod
-    def load_all_from_dict(cls, dict):
-        validate(schema=JSON_SCHEMA, instance=dict)
-        return [
-            Result.from_dict(item, meta=dict["meta"] if "meta" in dict else {})
-            for item in dict["defs"]
-        ]
+        if os.path.isfile(path) and path.endswith(".json"):
+            with click.open_file(path) as f:
+                # json_data = json.load(f) 
+                raw = f.read()
+                dhash = hashlib.md5()
+                dhash.update(raw.encode())
+                self.md5 = dhash.digest()
+                json_data = json.loads(raw)
 
-    @classmethod
-    def load_all_from_json_str(cls, json_str):
-        json_data = json.loads(json_str)
-        return cls.load_all_from_dict(json_data)
+                for key, items in json_data.items():
+                    self.cache_[key.casefold()] = Result.schema().load(items, many=True)
 
-    @classmethod
-    def load_all_from_file(cls, path):
-        with click.open_file(path) as f:
-            json_data = json.load(f)
-        return cls.load_all_from_dict(json_data)
+    def save(self, path=None):
+        """ Writes Lookup data to cache file """
+        if not path:
+            path = self.path
 
-    @classmethod
-    def save_to_json(cls, path, items, meta={}):
-        data_out = {"meta": meta, "defs": [item.to_dict() for item in items]}
+        encoded =  json.dumps(self.cache_, cls=EnhancedJSONEncoder, sort_keys=True).encode()
+        dhash = hashlib.md5()
+        dhash.update(encoded)
+
+        if self.md5 == dhash.digest():
+            # hash unchanged, skip
+            return
+
         directory = os.path.dirname(path)
         if not os.path.exists(directory):
             os.makedirs(directory)
-        with click.open_file(path, mode="w+") as f:
-            f.write(json.dumps(data_out))
+
+        with click.open_file(path, mode="bw+") as f:
+            f.write(encoded)
+    
+    def add(self, items):
+        for item in items:
+            key = item.acronym.casefold()
+            if item not in self.cache_[key]:
+                self.cache_[key].append(item)
+
+    def __iter__(self):
+        ''' Returns the Iterator object '''
+        return iter(self.cache_)
+
+    def __getitem__(self, key):
+        return self.cache_[key]
+    
+    def keys(self):
+        return self.cache_.keys()
+
+    @classmethod
+    def from_file(cls, path):
+        return cls(path=path)

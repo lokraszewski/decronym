@@ -2,29 +2,18 @@
     "sources": [
         {
             "enabled": true,
-            "type": "JSON_URL",
-            "url": "https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/ISO-3166-1-alpha-3.json"
+            "type": "wikipedia",
+            "url": "https://en.wikipedia.org/wiki/"
         },
         {
             "enabled": true,
-            "type": "TIMEDATE",
+            "type": "timedate",
             "url": "https://www.timeanddate.com/time/zones/"
         },
         {
             "enabled": true,
-            "type": "ISO_CURRENCY",
+            "type": "iso_currency",
             "url": "https://www.currency-iso.org/dam/downloads/lists/list_one.xml"
-        },
-        {
-            "enabled": false,
-            "page_id": 0,
-            "type": "CONFLUENCE_TABLE",
-            "url": "https://internal.confluence.com"
-        },
-        {
-            "enabled": true,
-            "type": "JSON_URL",
-            "url": "https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/tech.json"
         }
     ]
 }

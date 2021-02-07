@@ -5,5 +5,5 @@ jsonschema
 lxml
 requests
 Sphinx
-bs4
+beautifulsoup4
 nose

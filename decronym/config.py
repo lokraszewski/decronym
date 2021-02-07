@@ -6,8 +6,9 @@ import hashlib
 
 from jsonschema import validate, ValidationError
 from pkg_resources import resource_filename
-from enum import Enum, auto
 from .util import *
+from .lookup import *
+# from lookup import *
 from typing import (
     Any,
     Callable,
@@ -78,30 +79,6 @@ def select_config_file(path: str = None) -> str:
     else:
         return None
 
-
-class SourceType(Enum):
-    JSON_PATH = auto()
-    JSON_URL = auto()
-    TIMEDATE = auto()
-    ISO_CURRENCY = auto()
-    CONFLUENCE_TABLE = auto()
-
-    @classmethod
-    def from_str(cls, label):
-        if label in ("path", "JSON_PATH"):
-            return cls.JSON_PATH
-        elif label in ("url", "JSON_URL"):
-            return cls.JSON_URL
-        elif label in ("timeanddate", "TIMEDATE"):
-            return cls.TIMEDATE
-        elif label in ("iso_currency", "ISO_CURRENCY"):
-            return cls.ISO_CURRENCY
-        elif label in ("confluence_table", "CONFLUENCE_TABLE"):
-            return cls.CONFLUENCE_TABLE
-        else:
-            raise NotImplementedError
-
-
 class Config(object):
     """Stores configuration"""
 
@@ -118,7 +95,7 @@ class Config(object):
         self.load(self.path)
 
     def __del__(self):
-        if self.config_changed:
+        if self.changed() and click.confirm(f"Config changed, save changes?"):
             self.save()
 
     def save(self, path=None):
@@ -135,107 +112,31 @@ class Config(object):
             path = self.path
 
         with click.open_file(path) as f:
-            self.config = self.validate(json.load(f))
-            # validate(schema=JSON_CONFIG_SCHEMA, instance=self.config)
+            self.config = json.load(f)
+        
         self.hash = self.calculate_hash()
 
-    def validate(self, config=None):
-        if config is None:
-            config = self.config
-
-        for source in config["sources"]:
-            if not source["enabled"]:
-                continue
-            type_ = SourceType.from_str(source["type"])
-            if type_ is SourceType.JSON_PATH:
-                path = source["path"]
-                if os.path.isfile(path) and path.endswith(".json"):
-                    continue
-                elif os.path.isdir(path):
-                    continue
-                else:
-                    out_warn(f"Path '{path}' is not a valid file or dir - disabling")
-            elif type_ in (
-                SourceType.JSON_URL,
-                SourceType.TIMEDATE,
-                SourceType.ISO_CURRENCY,
-            ):
-                url = source["url"]
-                if not is_url_valid(url):
-                    out_warn(f"Invalid url ('{url}') in config - disabling")
-                elif not is_url_online(url):
-                    out_warn(f"Unreachable url ('{url}') in config - disabling")
-                else:
-                    continue
-            elif type_ is SourceType.CONFLUENCE_TABLE:
-                url = source["url"]
-                if not is_url_valid(url):
-                    out_warn(f"Invalid url ('{url}') in config - disabling")
-                else:
-                    continue
-            else:  # Unkown type, skip
-                out_warn(f"Unknown source typ")
-
-            source["enabled"] = False
-            self.config_changed = True
-
-        return config
-
-    def changed(self) -> bool:
+    def get_luts(self):
+        return [x for x in [LookupFactory.from_json(cfg) for cfg in self.config['sources']] if x is not None]
+        
+    def changed(self):
         return self.hash != self.calculate_hash()
 
     def calculate_hash(self):
         hash_object = hashlib.md5(json.dumps(self.config).encode("UTF-8"))
         return hash_object.hexdigest()
 
-    def get_enabled_sources(self) -> List[Tuple[SourceType, Any]]:
-        return [source for source in self.config["sources"] if source["enabled"]]
-
-    def add_url(self, input):
-        for source in self.config["sources"]:
-            type_ = SourceType.from_str(source["type"])
-            if type_ == SourceType.JSON_URL and input == source["url"]:
-                # already exists
-                out_warn(f"Url ('{input}') already in config - ignore")
-                return
-
-        self.config["sources"].append(
-            {"enabled": True, "url": input, "type": "JSON_URL"}
-        )
-
-    def add_path(self, input):
-        for source in self.config["sources"]:
-            type_ = SourceType.from_str(source["type"])
-            if type_ == SourceType.JSON_PATH and input == source["path"]:
-                # already exists
-                out_warn(f"Path ('{input}') already in config - ignore")
-                return
-
-        self.config["sources"].append(
-            {"enabled": True, "path": input, "type": "JSON_PATH"}
-        )
-
-    def add_source(self, input):
-        if os.path.isfile(input) or os.path.isdir(input):
-            self.add_path(input)
-        elif is_url_valid(input):
-            self.add_url(input)
-
-    def remove_source(self, input):
-        for source in self.config["sources"]:
-            if "url" in source:
-                if input == source["url"]:
-                    self.config["sources"].remove(source)
-            elif "path" in source:
-                if input == source["path"]:
-                    self.config["sources"].remove(source)
+    def add_source(self, source:Dict):
+        if source in self.config["sources"]:
+            out_warn(f"Source already in config - ignore")
+        else:
+            self.config["sources"].append(source)
 
     def config_menu(self):
         while True:
             click.clear()
             print("  #   | ON  | SOURCE")
             for id, source in enumerate(self.config["sources"]):
-                type_ = SourceType.from_str(source["type"])
                 menu_str = f"{id:3}   |"
                 menu_str += " [X] |" if source["enabled"] else " [ ] |"
                 if "url" in source:

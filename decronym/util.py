@@ -54,13 +54,6 @@ def is_url_online(input)-> bool:
         return r.status_code == 200
     except:
         return False
-        
-
-def generate_cache_filepath(input: str):
-    hash_object = hashlib.md5(input.encode("utf-8"))
-    dir = get_cache_dir()
-    filename = f"{hash_object.hexdigest()}.json"
-    return os.path.join(dir, filename)
 
 
 def get_cache_dir():

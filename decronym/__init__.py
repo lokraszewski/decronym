@@ -22,21 +22,32 @@ from typing import (
 )
 import click
 import os
-import json
-from functools import lru_cache, partial, wraps
-
 from .lookup import *
 from .result import *
 from .config import Config
 from .filter import *
 from .util import *
 
-
 def callback_config(ctx, param, value):
     """Inject configuration from configuration file."""
     ctx.obj = Config(path=value)
     return value
 
+def callback_type(ctx, param, value):
+    if value is not None:
+        return LookupType.from_str(value)
+    return None
+
+def guess_type(inout):
+    if is_url_valid(input):
+        if 'confluence' in input:
+            type_ = LookupType.CONFLUENCE_TABLE
+        else:
+            type_ = LookupType.JSON_URL
+    elif os.path.isfile(input) and input.endswith(".json"):
+        type_ = LookupType.JSON_PATH
+    elif os.path.isdir(input):
+        type_ = LookupType.JSON_PATH
 
 @click.group()
 @click.pass_context
@@ -67,24 +78,9 @@ def cli(ctx, config):
 )
 def find(ctx, acronyms, tags):
     """Searches for acronyms."""
-
-    lut = LookupCollector(ctx.obj)
-    for acronym in acronyms:
-        unfiltered = lut.find(acronym)
-        matches, filtered = filter(unfiltered, tags=tags)
-
-        if matches:
-            # click.secho(acronym, bold=True, fg="green")
-            out_success(acronym)
-            for match in matches:
-                print(match.pretty())
-        elif filtered:
-            out_warn("Some entries filtered, try running without filters?")
-        else:
-            out_warn(f"No entires for '{acronym}' found!")
-            similar = lut.find_similar(acronym)
-            if similar:
-                out(f"Suggested: {set(similar)}")
+    lookups = LookupAggregate(luts = ctx.obj.get_luts())
+    lookups.request(acronyms)
+    lookups.show_results()
 
 
 @cli.command()
@@ -106,67 +102,72 @@ def clean(ctx):
 
 @cli.command()
 @click.pass_context
-def update(ctx):
-    """Updates locally cached definition files based on config. """
+@click.argument("input", required=True)
+@click.option('--pageid',
+              type=int,
+              help=f"PageId required when adding '{LookupType.CONFLUENCE_TABLE.value}'"
+              )
+@click.option('--type','type_',
+              type=click.Choice([t.value for t in LookupType],               
+                                case_sensitive=False), 
+              callback=callback_type
+              )
+def add(ctx, input, type_, pageid):
+    """Adds source to config"""
 
-    # Create all sources with force flag enabled, this recreates cache files where relevant.
-    luts = LookupFactory.from_config(ctx.obj)
+    # Try to figure out type from input
+    if type_ is None:
+        type_ = guess_type(input)
 
-    with click.progressbar(
-        luts,
-        label="Updating cache",
-        fill_char=click.style("#", fg="green"),
-        length=len(luts),
-    ) as bar:
-        for lut in bar:
-            lut.load_from_source()
-            lut.write_to_cache()
+    if type_ is None:
+        raise click.UsageError(f"Could not figure out the source type from args, please specify with --type")
+    elif type_ is LookupType.CONFLUENCE_TABLE and pageid is None:
+        raise click.UsageError(f"Page ID is required for Confluence source")
+    
+    new_source = {
+        "type":type_.value,
+        "enabled":True
+        }
 
+    if type_ is LookupType.JSON_PATH:
+        new_source['path'] = input
+    elif type_ in (
+                LookupType.JSON_URL,
+                LookupType.TIMEDATE,
+                LookupType.ISO_CURRENCY,
+                LookupType.CONFLUENCE_TABLE,
+            ):
+        if is_url_valid(input):
+            new_source['url'] = input
+        else:
+            raise click.UsageError(f"Invalid URL given.")
+        
+    ctx.obj.add_source(new_source)
 
 @cli.command()
-@click.option(
-    "--add",
-    multiple=True,
-    type=str,
-    help=("Adds source to config"),
-)
-@click.option(
-    "--remove",
-    multiple=True,
-    type=str,
-    help=("Removes source from config"),
-)
-@click.option(
-    "--menu",
-    is_flag=True,
-    help=("Prompts config menu"),
-)
-@click.option(
-    "--edit",
-    is_flag=True,
-    help=("Opens the config file for editing "),
-)
-@click.option(
-    "--dump",
-    help=("Dumps the config to file (or stdout: '-' )"),
-)
 @click.pass_context
-def config(ctx, add, remove, edit, dump, menu):
-    """Configuration helper."""
-    if dump:
-        ctx.obj.save(path=dump)
-        return
-    if edit:
-        click.edit(filename=ctx.obj.path)
-        return
-    elif menu:
-        ctx.obj.config_menu()
-    elif remove:
-        for input in remove:
-            ctx.obj.remove_source(input)
-    elif add:
-        for input in add:
-            ctx.obj.add_source(input)
+def menu(ctx):
+    """Displays menu to toggle which sources are used."""
+    ctx.obj.config_menu()
 
-    if ctx.obj.changed() and click.confirm(f"Config changed, save changes?"):
-        ctx.obj.save()
+@cli.command()
+@click.pass_context
+def edit(ctx):
+    """Opens config in default editor."""
+    click.edit(filename=ctx.obj.path)
+
+@cli.command()
+@click.pass_context
+@click.argument(
+    "out",
+    type=click.Path(
+        file_okay=True, 
+        path_type=str,
+        allow_dash=True
+    ),
+    default='-',
+)
+def dump(ctx, out):
+    """Dumps config to file, by default writes to stdout"""
+    ctx.obj.save(out)
+

@@ -52,6 +52,6 @@ setup(
         "jsonschema",
         "requests",
         "lxml",
-        "bs4"
+        "beautifulsoup4"
     ],
 )
