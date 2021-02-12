@@ -2,6 +2,7 @@ click
 docutils
 jsonpickle
 jsonschema
+dataclasses-json
 lxml
 requests
 Sphinx
