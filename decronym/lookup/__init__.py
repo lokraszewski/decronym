@@ -118,6 +118,14 @@ class LookupAggregate(object):
                 self.matches[acronym] += lut[acronym]
                 self.similar[acronym] += lut.find(acronym,exact=False, similar=True)
 
+    def filter_tags(self, tags):
+        flat_list = [ item  for list in self.matches.values() for item in list]
+        filtered = [r for r in flat_list if set(r.tags).isdisjoint(tags)]
+        for item in filtered:
+            self.filtered[item.acronym].append(item)
+            if item in self.matches[item.acronym]:
+                self.matches[item.acronym].remove(item)
+
     def show_results(self):
         for requested in self.requests:
             matched = self.matches[requested]

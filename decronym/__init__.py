@@ -80,8 +80,9 @@ def find(ctx, acronyms, tags):
     """Searches for acronyms."""
     lookups = LookupAggregate(luts = ctx.obj.get_luts())
     lookups.request(acronyms)
+    if tags:
+        lookups.filter_tags(tags)
     lookups.show_results()
-
 
 @cli.command()
 @click.pass_context
