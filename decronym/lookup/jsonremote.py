@@ -42,11 +42,18 @@ class LookupRemote(Lookup):
                 )
                 return []
 
+            results = []
             json_data = json.loads(r.text)
-            results = [Result.from_dict(raw) for raw in list(filter(lambda x:x["acro"].casefold()== key, json_data['defs']))]
-            return set(results)
+            for entry, items in json_data.items():
+                if entry.casefold() != key.casefold():
+                    continue
+                results += Result.schema().load(items, many=True)
+
+            for r in results:
+                r.source = self.source
+            return results
 
         except Exception as e:
-            out_warn(f"Failed to access URL ({self.source}) {e}")
+            out_warn(f"Failed to get json from URL ({self.source}) {e}")
             return []
 

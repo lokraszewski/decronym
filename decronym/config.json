@@ -15,6 +15,12 @@
             "extra": {},
             "source": "https://www.currency-iso.org/dam/downloads/lists/list_one.xml",
             "type": "iso_currency"
+        },
+        {
+            "enabled": true,
+            "extra": {},
+            "source": "https://raw.githubusercontent.com/lokraszewski/decronym_json_example/main/social.json",
+            "type": "json_url"
         }
     ],
     "tag_map": {
