@@ -18,12 +18,15 @@
         }
     ],
     "tag_map": {
+        "airport": "places",
         "arts": "arts",
         "business": "business",
         "businesses": "business",
         "chemistry": "chem",
+        "company": "org",
         "computer": "computing",
         "computing": "computing",
+        "currency": "currency",
         "education": "edu",
         "entertainment": "pop",
         "government": "gov",
