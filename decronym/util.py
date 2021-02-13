@@ -63,3 +63,13 @@ def get_cache_dir():
 ACRONYM_REGEX = re.compile("^[a-zA-Z0-9\-]+$", re.UNICODE)
 def is_acronym_valid(input) -> bool:
     return bool(ACRONYM_REGEX.match(input))
+
+
+ACRONYM_GROUP_REGEX = re.compile("^(.*?)\((.*?)?\)") 
+def find_acronym_groups(text:str, acronym:str=None):
+    matches = ACRONYM_GROUP_REGEX.findall(text)
+
+    if acronym:
+        return [match for match in matches if acronym in match[1].casefold()]
+    else:
+        return matches

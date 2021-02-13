@@ -97,29 +97,17 @@ class LookupWikipedia(Lookup):
         else:
             for t in soup.find_all("p"):
                 for sentence in [sentence for sentence in t.text.split('.') if f"({key.upper()}" in sentence]:
-                    words = re.split('\W+', sentence)
-                    current_letter = 0
-                    full_ar = []
-                    for word in words:
-                        if word.casefold()[0] == key[current_letter]:
-                            full_ar.append(word)
-                            current_letter+=1
-                            if current_letter == len(key):
-                                break
-                        else:
-                            full_ar = []
-                            current_letter = 0
-
-                    if len(full_ar) != len(key):
+                    for full, _ in find_acronym_groups(sentence, key):
+                        results += [Result(
+                                    acronym = key,
+                                    full=full.strip(),
+                                    source=self.value,
+                                    comment=sentence,
+                                    tags=["wiki"]
+                                )]
                         break
-                    
-                    results += [Result(
-                                acronym = key,
-                                full=" ".join(full_ar),
-                                source=self.value,
-                                comment=sentence,
-                                tags=["wiki"]
-                            )]
-                    break
+                else:
+                    continue  # only executed if the inner loop did NOT break
+                break  # only executed if the inner loop DID break
             
         return results
