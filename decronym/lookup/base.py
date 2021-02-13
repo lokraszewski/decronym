@@ -6,16 +6,17 @@ from .type import LookupType
 from enum import Enum, auto
 from ..util import *
 from ..result import *
+from ..config import Config
 
 class Lookup(object):
-    def __init__(self, value:str, type_: LookupType, enabled: bool = True):
+    def __init__(self, value:str, type_: LookupType, enabled: bool = True, config:Config=None):
         # Common between all types of lookup
         self.value = value
         self.valid = None
         self.enabled = enabled
         self.type = type_
         self.cache = ResultCache(self.cache_path())
-
+        self.config = config
 
     def validate(self):
         out_warn(f"{self}.validate() not implemented, validate will set to True by default.")

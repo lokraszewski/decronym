@@ -97,33 +97,14 @@ def find_acronym_groups(text:str, acronym:str=None):
         return matches
 
 
-TAG_MAP = {
-    "technology":"tech",
-    "business":"business",
-    "businesses":"business",
-    "places":"places",
-    "people":"people",
-    "science":"science",
-    "military":"military",
-    "entertainment":"pop",
-    "government":"gov",
-    "organisations":"org",
-    "organizations":"org",
-    "other":"misc",
-    "chemistry":"chem",
-    "arts":"arts",
-    "education":"edu",
-    "computing":"computing",
-    "memory":"computing",
-    "computer":"computing",
-    }
-def generate_tags(text:str, initial:List[str]=None):
+def generate_tags(text:str, initial:List[str]=None, mapping:Dict[str,str]=None):
     tags = []
     if initial:
         tags  =initial
 
-    for word in re.split('\s+|_|(?=[A-Z])', text):
-        if word in TAG_MAP:
-            tags.append( TAG_MAP[word])
+    if mapping:
+        for word in re.split('\s+|_|(?=[A-Z])', text):
+            if word in mapping:
+                tags.append( mapping[word])
     
     return list(set(tags))

@@ -7,7 +7,6 @@ import hashlib
 from jsonschema import validate, ValidationError
 from pkg_resources import resource_filename
 from .util import *
-from .lookup import *
 # from lookup import *
 from typing import (
     Any,
@@ -115,9 +114,9 @@ class Config(object):
             self.config = json.load(f)
         
         self.hash = self.calculate_hash()
-
-    def get_luts(self):
-        return [x for x in [LookupFactory.from_json(cfg) for cfg in self.config['sources']] if x is not None]
+        
+    def get_tag_map(self):
+        return self.config['tag_map']
         
     def changed(self):
         return self.hash != self.calculate_hash()

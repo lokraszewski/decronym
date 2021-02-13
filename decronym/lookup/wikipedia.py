@@ -3,6 +3,7 @@ from .base import Lookup
 from .type import LookupType
 from ..result import Result
 from ..util import *
+from ..config import Config
 import requests
 import getpass
 from bs4 import BeautifulSoup
@@ -32,8 +33,8 @@ from typing import (
 )
 
 class LookupWikipedia(Lookup):
-    def __init__(self, url:str,   type_: LookupType, enabled: bool = True):
-        super().__init__(value=url,type_=type_,enabled=enabled)
+    def __init__(self, url:str,   type_: LookupType, enabled: bool = True, config:Config=None):
+        super().__init__(value=url,type_=type_,enabled=enabled, config=config)
 
     def validate(self):
         self.valid = is_url_valid(self.value)
@@ -72,7 +73,7 @@ class LookupWikipedia(Lookup):
                                 full=full,
                                 source=self.value,
                                 comment=comment,
-                                tags=generate_tags(headline['id'].lower(), ["wiki"]),
+                                tags=generate_tags(headline['id'].lower(), ["wiki"], mapping=self.config.get_tag_map()),
                             )]
 
                 else:
@@ -103,7 +104,7 @@ class LookupWikipedia(Lookup):
                                     full=full.strip(),
                                     source=self.value,
                                     comment=sentence,
-                                    tags=generate_tags(sentence, ["wiki"])
+                                    tags=generate_tags(sentence, ["wiki"], mapping=self.config.get_tag_map())
                                 )]
                         break
                 else:

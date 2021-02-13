@@ -78,7 +78,7 @@ def cli(ctx, config):
 )
 def find(ctx, acronyms, tags):
     """Searches for acronyms."""
-    lookups = LookupAggregate(luts = ctx.obj.get_luts())
+    lookups = LookupAggregate(LookupFactory.from_config(ctx.obj))
     lookups.request(acronyms)
     if tags:
         lookups.filter_tags(tags)

@@ -15,5 +15,25 @@
             "type": "iso_currency",
             "url": "https://www.currency-iso.org/dam/downloads/lists/list_one.xml"
         }
-    ]
+    ],
+    "tag_map":{
+        "technology":"tech",
+        "business":"business",
+        "businesses":"business",
+        "places":"places",
+        "people":"people",
+        "science":"science",
+        "military":"military",
+        "entertainment":"pop",
+        "government":"gov",
+        "organisations":"org",
+        "organizations":"org",
+        "other":"misc",
+        "chemistry":"chem",
+        "arts":"arts",
+        "education":"edu",
+        "computing":"computing",
+        "memory":"computing",
+        "computer":"computing"     
+    }
 }

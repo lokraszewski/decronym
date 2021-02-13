@@ -33,6 +33,7 @@ from typing import (
     TYPE_CHECKING,
 )
 
+from ..config import Config
 from ..result import *
 from ..util import *
 from .base import Lookup, LookupType
@@ -46,22 +47,34 @@ from .wikipedia import LookupWikipedia
 
 
 class LookupFactory(object):
+
     @classmethod
-    def from_json(cls, json_dict: Dict):
-        type_ = LookupType(json_dict["type"])
+    def create(cls,):
+        pass
+
+
+
+    @classmethod
+    def from_config(cls, config=None):
+        return [x for x in [cls.from_dict(cfg, config) for cfg in config.config['sources']] if x is not None]
+
+
+    @classmethod
+    def from_dict(cls, dict_: Dict, config=None):
+        type_ = LookupType(dict_["type"])
         if type_ == LookupType.JSON_PATH:
-            path=json_dict["path"]
+            path=dict_["path"]
             if os.path.isfile(path) and path.endswith(".json"):
                 return LookupJsonPath(
                     type_=type_, 
                     path=path,
-                    enabled=json_dict["enabled"]
+                    enabled=dict_["enabled"]
                 )
             elif os.path.isdir(path):
                 return LookupJsonDir(
                     type_=type_, 
                     path=path,
-                    enabled=json_dict["enabled"]
+                    enabled=dict_["enabled"]
                 )
             else:
                 return None
@@ -70,33 +83,34 @@ class LookupFactory(object):
         elif type_ == LookupType.JSON_URL:
             return LookupRemote(
                 type_=type_, 
-                url=json_dict["url"], 
-                enabled=json_dict["enabled"]
+                url=dict_["url"], 
+                enabled=dict_["enabled"]
             )
         elif type_ == LookupType.TIMEDATE:
             return LookupTimeAndDate(
                 type_=type_, 
-                url=json_dict["url"], 
-                enabled=json_dict["enabled"]
+                url=dict_["url"], 
+                enabled=dict_["enabled"]
             )
         elif type_ == LookupType.ISO_CURRENCY:
             return LookupCurrency(
                 type_=type_, 
-                url=json_dict["url"], 
-                enabled=json_dict["enabled"]
+                url=dict_["url"], 
+                enabled=dict_["enabled"]
             )
         elif type_ == LookupType.CONFLUENCE_TABLE:
             return LookupConfluenceTable(
                 type_=type_, 
-                url=json_dict["url"], 
-                page_id=json_dict["page_id"], 
-                enabled=json_dict["enabled"]
+                url=dict_["url"], 
+                page_id=dict_["page_id"], 
+                enabled=dict_["enabled"]
             )       
         elif type_ == LookupType.WIKIPEDIA:
             return LookupWikipedia(
                 type_=type_, 
-                url=json_dict["url"], 
-                enabled=json_dict["enabled"]
+                url=dict_["url"], 
+                enabled=dict_["enabled"],
+                config=config
             )
         else:
             out_err(f"Unknown type {type_} ")
