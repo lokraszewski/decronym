@@ -56,7 +56,10 @@ class LookupWikipedia(Lookup):
             if "may refer to" in t.text and key.upper() in t.text:
                 # Disambiguation
                 for headline in soup.find_all("span", {"class": "mw-headline"}):
-                    # has headlines, use those as tags
+                    if "see also" in headline.text.casefold():
+                        # Skip the disambiguation and similar matches
+                        continue
+                    
                     for item in headline.parent.findNext('ul').find_all("li"):
                         a = item.find("a")
                         if a and a.has_attr('title'):
