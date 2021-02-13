@@ -3,6 +3,7 @@ from .base import Lookup
 from .type import LookupType
 from ..result import Result
 from ..util import *
+from ..config import Config
 import requests
 import getpass
 from bs4 import BeautifulSoup
@@ -32,19 +33,19 @@ from typing import (
 )
 
 class LookupConfluenceTable(Lookup):
-    def __init__(self, url:str, page_id:int,  type_: LookupType, enabled: bool = True):
+    def __init__(self, source:str, enabled: bool = True, config:Config=None, extra:Dict=None):
         # Expects a confluence table in the followinng format:
         # |	ACRONYM | FULL | COMMENT
-        request_url = f"{url}/rest/api/content/{page_id}?expand=body.storage"
-        super().__init__(value=request_url,type_=type_,enabled=enabled)
+        request_url = f"{source}/rest/api/content/{extra['page_id']}?expand=body.storage"
+        super().__init__(source=request_url,enabled=enabled, config=config)
 
     def validate(self):
-        self.valid = is_url_valid(self.value)
+        self.valid = is_url_valid(self.source)
         
     def load_direct(self):
         username = input("user: ")
         password = getpass.getpass("password: ")
-        r = requests.get(self.value, auth=(username, password))
+        r = requests.get(self.source, auth=(username, password))
         if r.status_code != 200:
             # failed to fetch xml.
             return
@@ -53,7 +54,7 @@ class LookupConfluenceTable(Lookup):
         soup = BeautifulSoup(
             json_respnse["body"]["storage"]["value"].encode("UTF-8"), "html.parser"
         )
-        source_text = f"{json_respnse['title']} at {self.value}"
+        source_text = f"{json_respnse['title']} at {self.source}"
         self.lut = defaultdict(List)
         for row in soup.find_all(lambda tag: tag.name == "tr"):
             cols = row.find_all(lambda tag: tag.name == "td")

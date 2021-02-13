@@ -30,17 +30,13 @@ from typing import (
 )
 
 class LookupJsonDir(Lookup):
-    def __init__(self, path, type_: LookupType, enabled: bool = True):
-        super().__init__(value=path,type_=type_,enabled=enabled)
-
-
     def validate(self):
-        self.valid = os.path.isdir(self.value)
+        self.valid = os.path.isdir(self.source)
 
     def find_direct(self, key: str) -> List[Result]:
         key = key.casefold()
         results = []
-        for dir, _, files in os.walk(os.path.abspath(self.value)):
+        for dir, _, files in os.walk(os.path.abspath(self.source)):
             for file in files:
                 if not file.endswith('.json'):
                     continue
@@ -63,5 +59,5 @@ class LookupJsonDir(Lookup):
     def to_dict(self) -> Dict:
         base = super().to_dict()
         print(base)
-        base['path'] = self.value
+        base['path'] = self.source
         return base

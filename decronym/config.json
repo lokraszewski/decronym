@@ -3,37 +3,38 @@
         {
             "enabled": true,
             "type": "wikipedia",
-            "url": "https://en.wikipedia.org/wiki/"
+            "source": "https://en.wikipedia.org/wiki/"
         },
         {
             "enabled": true,
             "type": "timedate",
-            "url": "https://www.timeanddate.com/time/zones/"
+            "source": "https://www.timeanddate.com/time/zones/"
         },
         {
             "enabled": true,
             "type": "iso_currency",
-            "url": "https://www.currency-iso.org/dam/downloads/lists/list_one.xml"
+            "source": "https://www.currency-iso.org/dam/downloads/lists/list_one.xml",
+            "extra": {}
         }
     ],
-    "tag_map":{
-        "technology":"tech",
-        "business":"business",
-        "businesses":"business",
-        "places":"places",
-        "people":"people",
-        "science":"science",
-        "military":"military",
-        "entertainment":"pop",
-        "government":"gov",
-        "organisations":"org",
-        "organizations":"org",
-        "other":"misc",
-        "chemistry":"chem",
-        "arts":"arts",
-        "education":"edu",
-        "computing":"computing",
-        "memory":"computing",
-        "computer":"computing"     
+    "tag_map": {
+        "technology": "tech",
+        "business": "business",
+        "businesses": "business",
+        "places": "places",
+        "people": "people",
+        "science": "science",
+        "military": "military",
+        "entertainment": "pop",
+        "government": "gov",
+        "organisations": "org",
+        "organizations": "org",
+        "other": "misc",
+        "chemistry": "chem",
+        "arts": "arts",
+        "education": "edu",
+        "computing": "computing",
+        "memory": "computing",
+        "computer": "computing"
     }
 }

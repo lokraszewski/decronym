@@ -30,16 +30,13 @@ from typing import (
 )
 
 class LookupTimeAndDate(Lookup):
-    def __init__(self, url, type_: LookupType, enabled: bool = True):
-        super().__init__(value=url,type_=type_,enabled=enabled)
-
     def validate(self):
-        self.valid = is_url_valid(self.value)
+        self.valid = is_url_valid(self.source)
 
     def find_direct(self, key: str) -> List[Result]:
         key = key.casefold()
 
-        r = requests.get(f"{self.value}{key}")
+        r = requests.get(f"{self.source}{key}")
         if r.status_code != 200:
             return []
 
@@ -55,7 +52,7 @@ class LookupTimeAndDate(Lookup):
             Result(
                 acronym=key,
                 full=acronym.contents[-1].lstrip(),
-                source=self.value,
+                source=self.source,
                 comment="",
                 tags=["timezone"],
             )

@@ -46,75 +46,29 @@ from .confluence import LookupConfluenceTable
 from .wikipedia import LookupWikipedia
 
 
+
+_type_to_lookup = {
+    LookupType.JSON_FILE : LookupJsonPath,
+    LookupType.JSON_PATH : LookupJsonDir,
+    LookupType.JSON_URL : LookupRemote,
+    LookupType.TIMEDATE : LookupTimeAndDate,
+    LookupType.ISO_CURRENCY : LookupCurrency,
+    LookupType.CONFLUENCE_TABLE : LookupConfluenceTable,
+    LookupType.WIKIPEDIA : LookupWikipedia,
+    }
+
 class LookupFactory(object):
 
     @classmethod
-    def create(cls,):
-        pass
-
-
+    def create(cls, type, source,enabled, extra, config:Config=None):
+        return _type_to_lookup[type](source=source, enabled=enabled, extra=extra, config=config)
 
     @classmethod
-    def from_config(cls, config=None):
-        return [x for x in [cls.from_dict(cfg, config) for cfg in config.config['sources']] if x is not None]
-
-
-    @classmethod
-    def from_dict(cls, dict_: Dict, config=None):
-        type_ = LookupType(dict_["type"])
-        if type_ == LookupType.JSON_PATH:
-            path=dict_["path"]
-            if os.path.isfile(path) and path.endswith(".json"):
-                return LookupJsonPath(
-                    type_=type_, 
-                    path=path,
-                    enabled=dict_["enabled"]
-                )
-            elif os.path.isdir(path):
-                return LookupJsonDir(
-                    type_=type_, 
-                    path=path,
-                    enabled=dict_["enabled"]
-                )
-            else:
-                return None
-
-
-        elif type_ == LookupType.JSON_URL:
-            return LookupRemote(
-                type_=type_, 
-                url=dict_["url"], 
-                enabled=dict_["enabled"]
-            )
-        elif type_ == LookupType.TIMEDATE:
-            return LookupTimeAndDate(
-                type_=type_, 
-                url=dict_["url"], 
-                enabled=dict_["enabled"]
-            )
-        elif type_ == LookupType.ISO_CURRENCY:
-            return LookupCurrency(
-                type_=type_, 
-                url=dict_["url"], 
-                enabled=dict_["enabled"]
-            )
-        elif type_ == LookupType.CONFLUENCE_TABLE:
-            return LookupConfluenceTable(
-                type_=type_, 
-                url=dict_["url"], 
-                page_id=dict_["page_id"], 
-                enabled=dict_["enabled"]
-            )       
-        elif type_ == LookupType.WIKIPEDIA:
-            return LookupWikipedia(
-                type_=type_, 
-                url=dict_["url"], 
-                enabled=dict_["enabled"],
-                config=config
-            )
-        else:
-            out_err(f"Unknown type {type_} ")
-            return None
+    def from_config(cls, config:Config):
+        return [
+            cls.create(type, source, enabled, extra, config)
+            for type, source,enabled, extra in config.get_sources()
+        ]
 
 
 class LookupAggregate(object):

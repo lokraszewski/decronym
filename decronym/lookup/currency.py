@@ -31,17 +31,14 @@ from typing import (
 )
 
 class LookupCurrency(Lookup):
-    def __init__(self, url, type_: LookupType, enabled: bool = True):
-        super().__init__(value=url,type_=type_,enabled=enabled)
-
     def validate(self):
-        self.valid = is_url_valid(self.value)
+        self.valid = is_url_valid(self.source)
 
     def find_direct(self, 
                     key: str, 
                     update_cache:bool=False) -> List[Result]:
 
-        r = requests.get(f"{self.value}")
+        r = requests.get(f"{self.source}")
         if r.status_code != 200:
             # failed to fetch xml.
             return
@@ -56,7 +53,7 @@ class LookupCurrency(Lookup):
             results.append( Result(
                         acronym.text,
                         full=full.text,
-                        source=self.value,
+                        source=self.source,
                         tags=["currency","iso"]
                     ))
 

@@ -33,15 +33,12 @@ from typing import (
 )
 
 class LookupWikipedia(Lookup):
-    def __init__(self, url:str,   type_: LookupType, enabled: bool = True, config:Config=None):
-        super().__init__(value=url,type_=type_,enabled=enabled, config=config)
-
     def validate(self):
-        self.valid = is_url_valid(self.value)
+        self.valid = is_url_valid(self.source)
         
     def find_direct(self, key: str):
         key = key.casefold()
-        r = requests.get(f"{self.value}{key.upper()}" )
+        r = requests.get(f"{self.source}{key.upper()}" )
         if r.status_code != 200:
             return []
 
@@ -71,7 +68,7 @@ class LookupWikipedia(Lookup):
                         results += [Result(
                                 acronym = key,
                                 full=full,
-                                source=self.value,
+                                source=self.source,
                                 comment=comment,
                                 tags=generate_tags(headline['id'].lower(), ["wiki"], mapping=self.config.get_tag_map()),
                             )]
@@ -90,7 +87,7 @@ class LookupWikipedia(Lookup):
                         results += [Result(
                                 acronym = key,
                                 full=full,
-                                source=self.value,
+                                source=self.source,
                                 comment=comment,
                                 tags=tags
                             )]
@@ -102,7 +99,7 @@ class LookupWikipedia(Lookup):
                         results += [Result(
                                     acronym = key,
                                     full=full.strip(),
-                                    source=self.value,
+                                    source=self.source,
                                     comment=sentence,
                                     tags=generate_tags(sentence, ["wiki"], mapping=self.config.get_tag_map())
                                 )]

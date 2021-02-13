@@ -30,18 +30,15 @@ from typing import (
 )
 
 class LookupRemote(Lookup):
-    def __init__(self, url,  type_: LookupType, enabled: bool = True):
-        super().__init__(value=url,type_=type_,enabled=enabled)
-        
     def validate(self):
-        self.valid = is_url_valid(self.value)
+        self.valid = is_url_valid(self.source)
         
     def find_direct(self, key: str) -> List[Result]:
         try:
-            r = requests.get(self.value)
+            r = requests.get(self.source)
             if r.status_code != 200:
                 out_warn(
-                    f"URL ({self.value}) unreachable (code:{r.status_code}) - skipping."
+                    f"URL ({self.source}) unreachable (code:{r.status_code}) - skipping."
                 )
                 return []
 
@@ -50,6 +47,6 @@ class LookupRemote(Lookup):
             return set(results)
 
         except Exception as e:
-            out_warn(f"Failed to access URL ({self.value}) {e}")
+            out_warn(f"Failed to access URL ({self.source}) {e}")
             return []
 

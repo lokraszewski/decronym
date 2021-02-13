@@ -7,6 +7,8 @@ import hashlib
 from jsonschema import validate, ValidationError
 from pkg_resources import resource_filename
 from .util import *
+from .lookup.type import LookupType
+
 # from lookup import *
 from typing import (
     Any,
@@ -82,7 +84,7 @@ class Config(object):
     """Stores configuration"""
 
     def __init__(self, path=None) -> None:
-        self.config = None
+        self.config_ = None
         self.hash = None
         self.config_changed = False
         self.path = select_config_file(path)
@@ -102,7 +104,7 @@ class Config(object):
             path = self.path
 
         with click.open_file(path, mode="w+") as f:
-            f.write(json.dumps(self.config, sort_keys=True, indent=4))
+            f.write(json.dumps(self.config_, sort_keys=True, indent=4))
         self.hash = self.calculate_hash()
         self.config_changed = False
 
@@ -111,37 +113,31 @@ class Config(object):
             path = self.path
 
         with click.open_file(path) as f:
-            self.config = json.load(f)
+            self.config_ = json.load(f)
         
         self.hash = self.calculate_hash()
-        
-    def get_tag_map(self):
-        return self.config['tag_map']
         
     def changed(self):
         return self.hash != self.calculate_hash()
 
     def calculate_hash(self):
-        hash_object = hashlib.md5(json.dumps(self.config).encode("UTF-8"))
+        hash_object = hashlib.md5(json.dumps(self.config_).encode("UTF-8"))
         return hash_object.hexdigest()
 
     def add_source(self, source:Dict):
-        if source in self.config["sources"]:
+        if source in self.config_["sources"]:
             out_warn(f"Source already in config - ignore")
         else:
-            self.config["sources"].append(source)
+            self.config_["sources"].append(source)
 
     def config_menu(self):
         while True:
             click.clear()
             print("  #   | ON  | SOURCE")
-            for id, source in enumerate(self.config["sources"]):
+            for id, source in enumerate(self.config_["sources"]):
                 menu_str = f"{id:3}   |"
                 menu_str += " [X] |" if source["enabled"] else " [ ] |"
-                if "url" in source:
-                    menu_str += f" {source['url']}"
-                elif "path" in source:
-                    menu_str += f" {source['path']}"
+                menu_str += f" {source['source']}"
                 print(menu_str)
 
             print(f"q: quit")
@@ -150,6 +146,15 @@ class Config(object):
             if user_in == "q":
                 break
 
-            for id, source in enumerate(self.config["sources"]):
+            for id, source in enumerate(self.config_["sources"]):
                 if str(id) == user_in:
                     source["enabled"] = not source["enabled"]
+
+    def get_sources(self):
+        return [
+            ( LookupType(source["type"]), source['source'],source['enabled'], source.get('extra', {}))
+            for source in self.config_['sources']
+        ]
+
+    def get_tag_map(self):
+        return self.config_.get('tag_map', {})

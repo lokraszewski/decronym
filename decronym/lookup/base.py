@@ -9,12 +9,11 @@ from ..result import *
 from ..config import Config
 
 class Lookup(object):
-    def __init__(self, value:str, type_: LookupType, enabled: bool = True, config:Config=None):
+    def __init__(self, source:str, enabled: bool = True, config:Config=None, extra:Dict=None):
         # Common between all types of lookup
-        self.value = value
+        self.source = source
         self.valid = None
         self.enabled = enabled
-        self.type = type_
         self.cache = ResultCache(self.cache_path())
         self.config = config
 
@@ -23,7 +22,7 @@ class Lookup(object):
         self.valid = True
 
     def cache_path(self):
-        hash_object = hashlib.md5(self.value.encode("utf-8"))
+        hash_object = hashlib.md5(self.source.encode("utf-8"))
         dir = get_cache_dir()
         filename = f"{hash_object.hexdigest()}.json"
         return os.path.join(dir, filename)

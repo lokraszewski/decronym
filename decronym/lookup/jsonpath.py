@@ -29,16 +29,13 @@ from typing import (
     TYPE_CHECKING,
 )
 class LookupJsonPath(Lookup):
-    def __init__(self, path, type_: LookupType, enabled: bool = True):
-        super().__init__(value=path,type_=type_,enabled=enabled)
-
     def validate(self):
-        self.valid = os.path.isfile(self.value) and self.value.endswith(".json")
+        self.valid = os.path.isfile(self.source) and self.source.endswith(".json")
 
     def find_direct(self, key: str) -> List[Result]:
         key = key.casefold()
 
-        with click.open_file(self.value) as f:
+        with click.open_file(self.source) as f:
             json_data = json.load(f)
         
         if key not in json_data:
@@ -46,11 +43,11 @@ class LookupJsonPath(Lookup):
 
         results = Result.schema().load(json_data[key], many=True)
         for r in results:
-            r.source = self.value
+            r.source = self.source
         return results
         
     def to_dict(self) -> Dict:
         base = super().to_dict()
         print(base)
-        base['path'] = self.value
+        base['path'] = self.source
         return base
