@@ -72,7 +72,7 @@ class LookupWikipedia(Lookup):
                                 full=full,
                                 source=self.value,
                                 comment=comment,
-                                tags=["wiki", headline['id'].lower()],
+                                tags=generate_tags(headline['id'].lower(), ["wiki"]),
                             )]
 
                 else:
@@ -103,7 +103,7 @@ class LookupWikipedia(Lookup):
                                     full=full.strip(),
                                     source=self.value,
                                     comment=sentence,
-                                    tags=["wiki"]
+                                    tags=generate_tags(sentence, ["wiki"])
                                 )]
                         break
                 else:

@@ -1,10 +1,32 @@
 import re
+from typing import DefaultDict
 import requests
 import hashlib
 import os
 import click
 from functools import partial
-
+from typing import (
+    Any,
+    Callable,
+    Collection,
+    Dict,
+    Generator,
+    Generic,
+    Iterable,
+    Iterator,
+    List,
+    Optional,
+    Pattern,
+    Sequence,
+    Set,
+    Sized,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    TYPE_CHECKING,
+)
 
 URL_REGEX = re.compile(
     "^"
@@ -73,3 +95,35 @@ def find_acronym_groups(text:str, acronym:str=None):
         return [match for match in matches if acronym in match[1].casefold()]
     else:
         return matches
+
+
+TAG_MAP = {
+    "technology":"tech",
+    "business":"business",
+    "businesses":"business",
+    "places":"places",
+    "people":"people",
+    "science":"science",
+    "military":"military",
+    "entertainment":"pop",
+    "government":"gov",
+    "organisations":"org",
+    "organizations":"org",
+    "other":"misc",
+    "chemistry":"chem",
+    "arts":"arts",
+    "education":"edu",
+    "computing":"computing",
+    "memory":"computing",
+    "computer":"computing",
+    }
+def generate_tags(text:str, initial:List[str]=None):
+    tags = []
+    if initial:
+        tags  =initial
+
+    for word in re.split('\s+|_|(?=[A-Z])', text):
+        if word in TAG_MAP:
+            tags.append( TAG_MAP[word])
+    
+    return list(set(tags))

@@ -113,6 +113,10 @@ class LookupAggregate(object):
 
     def request(self, acronyms):
         for acronym in acronyms:
+            if not is_acronym_valid(acronym):
+                out_warn(f"'{acronym}' is not a valid acronym, skipping!")
+                continue
+
             self.requests.append(acronym)
             for lut in self.luts:
                 self.matches[acronym] += lut[acronym]
