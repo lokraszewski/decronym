@@ -80,6 +80,7 @@ def select_config_file(path: str = None) -> str:
     else:
         return None
 
+
 class Config(object):
     """Stores configuration"""
 
@@ -114,9 +115,9 @@ class Config(object):
 
         with click.open_file(path) as f:
             self.config_ = json.load(f)
-        
+
         self.hash = self.calculate_hash()
-        
+
     def changed(self):
         return self.hash != self.calculate_hash()
 
@@ -124,11 +125,20 @@ class Config(object):
         hash_object = hashlib.md5(json.dumps(self.config_).encode("UTF-8"))
         return hash_object.hexdigest()
 
-    def add_source(self, source:Dict):
-        if source in self.config_["sources"]:
-            out_warn(f"Source already in config - ignore")
-        else:
-            self.config_["sources"].append(source)
+    def add_source(self, new_type: LookupType, new_source: str, new_extra: Dict = None):
+        for type_, source, _, _ in self.get_sources():
+            if new_type == type_ and new_source == source:
+                out_warn(f"{new_type} - {new_source} - already in config!")
+                return
+
+        self.config_["sources"].append(
+            {
+                "type": new_type.value,
+                "source": new_source,
+                "enabled": True,
+                "extra": new_extra,
+            }
+        )
 
     def config_menu(self):
         while True:
@@ -152,9 +162,14 @@ class Config(object):
 
     def get_sources(self):
         return [
-            ( LookupType(source["type"]), source['source'],source['enabled'], source.get('extra', {}))
-            for source in self.config_['sources']
+            (
+                LookupType(source["type"]),
+                source["source"],
+                source["enabled"],
+                source.get("extra", {}),
+            )
+            for source in self.config_["sources"]
         ]
 
     def get_tag_map(self):
-        return self.config_.get('tag_map', {})
+        return self.config_.get("tag_map", {})

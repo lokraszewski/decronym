@@ -35,19 +35,25 @@ def callback_config(ctx, param, value):
 
 def callback_type(ctx, param, value):
     if value is not None:
-        return LookupType.from_str(value)
+        return LookupType(value)
     return None
 
-def guess_type(inout):
+def guess_type(input:str):
     if is_url_valid(input):
         if 'confluence' in input:
-            type_ = LookupType.CONFLUENCE_TABLE
+            return LookupType.CONFLUENCE_TABLE
+        elif 'timeanddate' in input:
+            return LookupType.TIMEDATE
+        elif 'currency-iso' in input:
+            return LookupType.ISO_CURRENCY
         else:
-            type_ = LookupType.JSON_URL
+            return LookupType.JSON_URL
     elif os.path.isfile(input) and input.endswith(".json"):
-        type_ = LookupType.JSON_PATH
+        return LookupType.JSON_FILE
     elif os.path.isdir(input):
-        type_ = LookupType.JSON_PATH
+        return LookupType.JSON_PATH
+
+    return None
 
 @click.group()
 @click.pass_context
@@ -115,7 +121,6 @@ def clean(ctx):
               )
 def add(ctx, input, type_, pageid):
     """Adds source to config"""
-
     # Try to figure out type from input
     if type_ is None:
         type_ = guess_type(input)
@@ -124,26 +129,22 @@ def add(ctx, input, type_, pageid):
         raise click.UsageError(f"Could not figure out the source type from args, please specify with --type")
     elif type_ is LookupType.CONFLUENCE_TABLE and pageid is None:
         raise click.UsageError(f"Page ID is required for Confluence source")
-    
-    new_source = {
-        "type":type_.value,
-        "enabled":True
-        }
-
-    if type_ is LookupType.JSON_PATH:
-        new_source['path'] = input
     elif type_ in (
                 LookupType.JSON_URL,
                 LookupType.TIMEDATE,
                 LookupType.ISO_CURRENCY,
                 LookupType.CONFLUENCE_TABLE,
-            ):
-        if is_url_valid(input):
-            new_source['url'] = input
-        else:
-            raise click.UsageError(f"Invalid URL given.")
+                LookupType.WIKIPEDIA
+            ) and not is_url_valid(input):
+        raise click.UsageError(f"Invalid URL given.")
+
+    extra ={}
+    if type_ is LookupType.CONFLUENCE_TABLE:
+        extra["pageid"] = pageid
+    elif type_ in (LookupType.JSON_FILE, LookupType.JSON_PATH):
+        input = os.path.abspath(input)
         
-    ctx.obj.add_source(new_source)
+    ctx.obj.add_source(type_, input, extra)
 
 @cli.command()
 @click.pass_context

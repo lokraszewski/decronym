@@ -2,39 +2,39 @@
     "sources": [
         {
             "enabled": true,
-            "type": "wikipedia",
-            "source": "https://en.wikipedia.org/wiki/"
+            "source": "https://en.wikipedia.org/wiki/",
+            "type": "wikipedia"
         },
         {
             "enabled": true,
-            "type": "timedate",
-            "source": "https://www.timeanddate.com/time/zones/"
+            "source": "https://www.timeanddate.com/time/zones/",
+            "type": "timedate"
         },
         {
             "enabled": true,
-            "type": "iso_currency",
+            "extra": {},
             "source": "https://www.currency-iso.org/dam/downloads/lists/list_one.xml",
-            "extra": {}
+            "type": "iso_currency"
         }
     ],
     "tag_map": {
-        "technology": "tech",
+        "arts": "arts",
         "business": "business",
         "businesses": "business",
-        "places": "places",
-        "people": "people",
-        "science": "science",
-        "military": "military",
+        "chemistry": "chem",
+        "computer": "computing",
+        "computing": "computing",
+        "education": "edu",
         "entertainment": "pop",
         "government": "gov",
+        "memory": "computing",
+        "military": "military",
         "organisations": "org",
         "organizations": "org",
         "other": "misc",
-        "chemistry": "chem",
-        "arts": "arts",
-        "education": "edu",
-        "computing": "computing",
-        "memory": "computing",
-        "computer": "computing"
+        "people": "people",
+        "places": "places",
+        "science": "science",
+        "technology": "tech"
     }
 }
