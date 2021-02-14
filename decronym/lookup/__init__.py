@@ -1,36 +1,9 @@
 # -*- coding: utf-8 -*-
-import os
-import requests
-import json
-import click
-import re
-import getpass
-
+import multiprocessing as mp
 from jsonschema import validate, ValidationError
 from collections import defaultdict
-from lxml import etree
-from enum import Enum, auto
 from typing import (
-    Any,
-    Callable,
-    Collection,
-    Dict,
-    Generator,
-    Generic,
-    Iterable,
-    Iterator,
     List,
-    Optional,
-    Pattern,
-    Sequence,
-    Set,
-    Sized,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    TYPE_CHECKING,
 )
 
 from ..config import Config
@@ -46,52 +19,70 @@ from .confluence import LookupConfluenceTable
 from .wikipedia import LookupWikipedia
 
 
-
 _type_to_lookup = {
-    LookupType.JSON_FILE : LookupJsonPath,
-    LookupType.JSON_PATH : LookupJsonDir,
-    LookupType.JSON_URL : LookupRemote,
-    LookupType.TIMEDATE : LookupTimeAndDate,
-    LookupType.ISO_CURRENCY : LookupCurrency,
-    LookupType.CONFLUENCE_TABLE : LookupConfluenceTable,
-    LookupType.WIKIPEDIA : LookupWikipedia,
-    }
+    LookupType.JSON_FILE: LookupJsonPath,
+    LookupType.JSON_PATH: LookupJsonDir,
+    LookupType.JSON_URL: LookupRemote,
+    LookupType.TIMEDATE: LookupTimeAndDate,
+    LookupType.ISO_CURRENCY: LookupCurrency,
+    LookupType.CONFLUENCE_TABLE: LookupConfluenceTable,
+    LookupType.WIKIPEDIA: LookupWikipedia,
+}
+
 
 class LookupFactory(object):
+    @classmethod
+    def create(cls, type, source, enabled, extra, config: Config = None):
+        return _type_to_lookup[type](
+            source=source, enabled=enabled, extra=extra, config=config
+        )
 
     @classmethod
-    def create(cls, type, source,enabled, extra, config:Config=None):
-        return _type_to_lookup[type](source=source, enabled=enabled, extra=extra, config=config)
-
-    @classmethod
-    def from_config(cls, config:Config):
+    def from_config(cls, config: Config):
         return [
             cls.create(type, source, enabled, extra, config)
-            for type, source,enabled, extra in config.get_sources()
+            for type, source, enabled, extra in config.get_sources()
         ]
 
 
+def _acronym_find_helper(lut, input):
+    return (input, lut.find(input))
+
+
+def _acronym_similar_helper(lut, input):
+    return (input, lut.find_similar(input))
+
+
 class LookupAggregate(object):
-    def __init__(self, luts:List[Lookup]):
+    def __init__(self, luts: List[Lookup]):
         self.luts = luts
         self.matches = defaultdict(list)
         self.filtered = defaultdict(list)
         self.similar = defaultdict(list)
         self.requests = []
 
-    def request(self, acronyms):
-        for acronym in acronyms:
-            if not is_acronym_valid(acronym):
-                out_warn(f"'{acronym}' is not a valid acronym, skipping!")
-                continue
+    def append_match(self, results):
+        for key, r in results:
+            self.matches[key] += r
 
-            self.requests.append(acronym)
-            for lut in self.luts:
-                self.matches[acronym] += lut[acronym]
-                self.similar[acronym] += lut.find(acronym,exact=False, similar=True)
+    def append_similar(self, results):
+        for key, r in results:
+            self.similar[key] += r
+
+    def request(self, acronyms):
+        self.requests += acronyms
+
+        with mp.Pool() as pool:
+            args = [(lut, a) for lut in self.luts for a in acronyms]
+            pool.starmap_async(_acronym_find_helper, args, callback=self.append_match)
+            pool.starmap_async(
+                _acronym_similar_helper, args, callback=self.append_similar
+            )
+            pool.close()
+            pool.join()
 
     def filter_tags(self, tags):
-        flat_list = [ item  for list in self.matches.values() for item in list]
+        flat_list = [item for list in self.matches.values() for item in list]
         filtered = [r for r in flat_list if set(r.tags).isdisjoint(tags)]
         for item in filtered:
             self.filtered[item.acronym].append(item)
