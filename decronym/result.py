@@ -131,6 +131,10 @@ class ResultCache:
 
     def save(self, path=None):
         """ Writes Lookup data to cache file """
+        if not self.cache_:
+            # empty, nothing to do
+            return
+            
         if not path:
             path = self.path
 
