@@ -35,23 +35,31 @@ from typing import (
 
 
 JSON_CONFIG_SCHEMA = {
+    "definitions": {
+        "source": {
+            "type": "object",
+            "properties": {
+                "enabled": {"type": "boolean"},
+                "source": {"type": "string"},
+                "type": {"type": "string"},
+                "extra": {"type": "object"},
+            },
+            "required": ["type", "source", "enabled"],
+        }
+    },
+    
     "type": "object",
     "properties": {
         "sources": {
             "type": "array",
             "items": {
-                "type": "object",
-                "properties": {
-                    "enabled": {"type": "bool"},
-                    "type": {"type": "string"},
-                    "path": {"type": "string"},
-                    "url": {"type": "string"},
-                    "needs_auth": {"type": "bool"},
-                    "username": {"type": "string"},
-                },
-            },
+                "$ref": "#/definitions/source"
+            }
+        },
+        "tag_map" : {
+            "type" : "object"
         }
-    },
+    }
 }
 
 
@@ -97,7 +105,7 @@ class Config(object):
         self.load(self.path)
 
     def __del__(self):
-        if self.changed() and click.confirm(f"Config changed, save changes?"):
+        if self.config_ is not None and self.changed() and click.confirm(f"Config changed, save changes?"):
             self.save()
 
     def save(self, path=None):
@@ -114,7 +122,13 @@ class Config(object):
             path = self.path
 
         with click.open_file(path) as f:
-            self.config_ = json.load(f)
+            try:
+                json_data = json.load(f)
+                validate(instance=json_data, schema=JSON_CONFIG_SCHEMA)
+                self.config_ = json_data
+            except ValidationError as e:
+                print(e)
+                raise click.UsageError(f"Invalid configuration format, exiting.")
 
         self.hash = self.calculate_hash()
 
