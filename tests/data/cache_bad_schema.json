@@ -1,0 +1,12 @@
+{
+	"dma": [
+		{
+			"comment": "Missing acronym",
+			"full": "Direct Memory Access",
+			"source": "test",
+			"tags": [
+				"test"
+			]
+		}
+	]
+}

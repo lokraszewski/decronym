@@ -1,0 +1,22 @@
+{
+	dma": [
+		{
+			"acronym": "dma",
+			"comment": "This is an example of a comment.",
+			"full": "Direct Memory Access",
+			"source": "test",
+			"tags": [
+				"test"
+			]
+		},
+		{
+			"acronym": "dma",
+			"comment": "Multiple entries grouped by acronym",
+			"full": "Dynamic Memory Allocation",
+			"source": "test",
+			"tags": [
+				"test"
+			]
+		}
+	]
+}

@@ -7,7 +7,6 @@ from typing import (
 )
 
 from ..config import Config
-from ..result import *
 from ..util import *
 from .base import Lookup, LookupType
 from .jsonpath import LookupJsonPath

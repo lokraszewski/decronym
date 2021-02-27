@@ -25,7 +25,6 @@ import os
 from .lookup import *
 from .result import *
 from .config import Config
-from .filter import *
 from .util import *
 
 def callback_config(ctx, param, value):

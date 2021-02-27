@@ -1,31 +1,10 @@
 import re
-from typing import DefaultDict
-import requests
-import hashlib
 import os
 import click
 from functools import partial
 from typing import (
-    Any,
-    Callable,
-    Collection,
     Dict,
-    Generator,
-    Generic,
-    Iterable,
-    Iterator,
     List,
-    Optional,
-    Pattern,
-    Sequence,
-    Set,
-    Sized,
-    Tuple,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    TYPE_CHECKING,
 )
 
 URL_REGEX = re.compile(
@@ -69,15 +48,6 @@ out_warn = partial(click.secho, fg="yellow", err=True)
 def is_url_valid(input) -> bool:
     return bool(URL_REGEX.match(input))
 
-
-def is_url_online(input)-> bool:
-    try:
-        r = requests.head(input, allow_redirects=True,timeout=2)
-        return r.status_code == 200
-    except:
-        return False
-
-
 def get_cache_dir():
     return os.path.join(os.environ["HOME"], ".config/decronym", "cache")
 
@@ -85,7 +55,6 @@ def get_cache_dir():
 ACRONYM_REGEX = re.compile("^[a-zA-Z0-9\-]+$", re.UNICODE)
 def is_acronym_valid(input) -> bool:
     return bool(ACRONYM_REGEX.match(input))
-
 
 ACRONYM_GROUP_REGEX = re.compile("^(.*?)\((.*?)?\)") 
 def find_acronym_groups(text:str, acronym:str=None):
@@ -95,7 +64,6 @@ def find_acronym_groups(text:str, acronym:str=None):
         return [match for match in matches if acronym in match[1].casefold()]
     else:
         return matches
-
 
 def generate_tags(text:str, initial:List[str]=None, mapping:Dict[str,str]=None):
     tags = []

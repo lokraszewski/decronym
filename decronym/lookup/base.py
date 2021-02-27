@@ -1,12 +1,14 @@
 # -*- coding: utf-8 -*-
 
 import difflib
+import hashlib
 
 from .type import LookupType
 from enum import Enum, auto
 from ..util import *
-from ..result import *
 from ..config import Config
+from ..result import Result
+from ..cache import ResultCache
 
 class Lookup(object):
     def __init__(self, source:str, enabled: bool = True, config:Config=None, extra:Dict=None):
